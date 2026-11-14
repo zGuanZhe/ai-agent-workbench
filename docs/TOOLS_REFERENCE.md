@@ -39,6 +39,20 @@
 - **刻意不做**：不操控桌面窗口自动点击发送消息或切换群聊，杜绝微信 4.x 焦点抢占与账号风控；企业微信密钥仅存在于 `WXWork.exe` 运行内存中，客户端未启动且无缓存时无法首次提取。
 - **多模态协作（`wechat_chat` MCP）**：当需要转写微信语音（SILK+Whisper）、用视觉能力直接解读聊天图片或分页阅读聊天附件里的长 PDF/Word 时，调用开源 `Haoea1024/wechat-chat-mcp`。
 
+### 1.3 开源搭档 `wechat_chat` MCP 工具清单（`Haoea1024/wechat-chat-mcp`）
+
+| 工具名 | 有什么用 |
+| :--- | :--- |
+| `project_status` / `list_projects` / `configure_project` / `set_project_chats` | 把多个关联群和私聊绑定成“项目”，跨会话持续追踪项目进展 |
+| `discover_chats` | 按关键词模糊发现并定位相关群聊或联系人 |
+| `find_private_chats` | **通过群成员反推私聊**：从已知项目群成员名单出发，找出你与他们的私聊窗口 |
+| `get_project_brief` / `save_project_brief` / `read_project_updates` / `get_project_context` | 读取或保存项目简报、查看项目绑定会话的增量更新与上下文 |
+| `search_messages` / `search_chat` / `get_messages` / `read_conversation` | 在本地索引库跨会话搜索、按消息 ID 拉取上下条或分页读长会话 |
+| `list_attachments` | 列出项目或聊天中出现的所有附件（图片/语音/PDF/Office 文档）及其 `message_id` |
+| `read_attachment` | **核心多模态读附件**：SILK+Whisper 语音转文字、图片/扫描件读取、PDF/Office 分页读取 |
+| `backup_attachment` | 将指定 `message_id` 对应的附件一键备份到本地安全目录 |
+| `remember_feedback` / `list_feedback` / `revoke_feedback` | 记录、查看或撤销对项目识别结果的纠偏反馈 |
+
 ---
 
 ## 二、`work-office`（文档与表格模块 · 18 主工具 + 104 开源子工具）
