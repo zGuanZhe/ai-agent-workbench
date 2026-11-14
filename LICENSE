@@ -21,9 +21,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
-Third-Party Notice:
-- `packages/work-toolkit/bin/officecli.exe` is distributed from iOfficeAI/OfficeCLI
-  under its own upstream license terms (see `packages/work-toolkit/bin/README.md`).
-- Optional external dependencies (`wechat-chat-mcp`, `excel-mcp-server`,
-  `Office-Word-MCP-Server`, `OfficeMCP`, `engram`) are governed by their
-  respective upstream licenses and are not bundled into this repository.
+Third-Party Components Notice:
+- `packages/work-toolkit/bin/officecli.exe` (iOfficeAI/OfficeCLI)
+- `packages/work-toolkit/bin/engram.exe` (Gentleman-Programming/engram)
+- `packages/work-toolkit/mcp_servers/excel-mcp-server` (haris-musa/excel-mcp-server, MIT)
+- `packages/work-toolkit/mcp_servers/Office-Word-MCP-Server` (GongRzhe/Office-Word-MCP-Server, MIT)
+- `packages/work-toolkit/mcp_servers/OfficeMCP`
+- `packages/work-toolkit/mcp_servers/wechat-chat-mcp` (Haoea1024/wechat-chat-mcp, Apache-2.0)
+Each bundled upstream component remains governed by its respective license.

@@ -1,0 +1,374 @@
+"""The formula calculator behind read_range, and the function prefixes written to files."""
+
+import datetime as dt
+from pathlib import Path
+from typing import Any
+from zipfile import ZipFile
+
+import pytest
+from openpyxl import Workbook, load_workbook
+from openpyxl.workbook.defined_name import DefinedName
+
+from excel_mcp.xlfn import add_prefixes
+from tests.conftest import ToolCall
+
+pytestmark = pytest.mark.anyio
+
+
+def make_workbook(path: Path, cells: dict[str, int | str]) -> None:
+    workbook = Workbook()
+    sheet = workbook.worksheets[0]
+    sheet.title = "Data"
+    for ref, value in cells.items():
+        sheet[ref] = value
+    workbook.save(path)
+
+
+async def read_values(call: ToolCall, ref: str) -> dict[str, Any]:
+    return await call("read_range", path="calc.xlsx", sheet="Data", range=ref)
+
+
+async def test_formulas_without_a_stored_result_are_calculated(call: ToolCall, files: Path) -> None:
+    make_workbook(
+        files / "calc.xlsx",
+        {"A1": 10, "A2": 20, "B1": "=SUM(A1:A2)", "B2": "=B1*2", "B3": '=IF(B2>50,"big","small")'},
+    )
+
+    data = await read_values(call, "A1:B3")
+
+    assert data["values"] == [[10, 30], [20, 60], [None, "big"]]
+    assert "uncalculated" not in data
+
+
+async def test_stored_results_are_kept(call: ToolCall, files: Path) -> None:
+    source = files / "calc.xlsx"
+    make_workbook(source, {"A1": 1, "B1": "=A1+1"})
+    with ZipFile(source) as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    sheet = parts["xl/worksheets/sheet1.xml"]
+    assert b"<v></v>" in sheet or b"<v />" in sheet
+    parts["xl/worksheets/sheet1.xml"] = sheet.replace(b"<v></v>", b"<v>99</v>").replace(
+        b"<v />", b"<v>99</v>"
+    )
+    with ZipFile(source, "w") as archive:
+        for name, content in parts.items():
+            archive.writestr(name, content)
+
+    data = await read_values(call, "B1")
+
+    assert data["values"] == [[99]]
+
+
+async def test_unsupported_functions_are_listed_not_guessed(call: ToolCall, files: Path) -> None:
+    make_workbook(files / "calc.xlsx", {"A1": 1, "B1": "=FOO(A1)", "B2": "=RAND()", "B3": "=A1+1"})
+
+    data = await read_values(call, "B1:B3")
+
+    assert data["values"] == [[], [], [2]]
+    assert data["uncalculated"] == {"B1": "FOO", "B2": "RAND"}
+
+
+async def test_blocked_functions_are_never_calculated(call: ToolCall, files: Path) -> None:
+    make_workbook(
+        files / "calc.xlsx", {"B1": '=WEBSERVICE("http://example.com")', "B2": '=EXEC("calc.exe")'}
+    )
+
+    data = await read_values(call, "B1:B2")
+
+    assert data["values"] == []
+    assert set(data["uncalculated"]) == {"B1", "B2"}
+
+
+async def test_circular_references_are_uncalculated(call: ToolCall, files: Path) -> None:
+    make_workbook(files / "calc.xlsx", {"A1": "=B1", "B1": "=A1"})
+
+    data = await read_values(call, "A1:B1")
+
+    assert data["values"] == []
+    assert data["uncalculated"] == {"A1": "circular reference", "B1": "circular reference"}
+
+
+async def test_long_dependency_chains(call: ToolCall, files: Path) -> None:
+    cells: dict[str, int | str] = {"A1": 1}
+    cells.update({f"A{row}": f"=A{row - 1}+1" for row in range(2, 301)})
+    make_workbook(files / "calc.xlsx", cells)
+
+    data = await read_values(call, "A300")
+
+    assert data["values"] == [[300]]
+
+
+async def test_work_is_bounded(call: ToolCall, files: Path) -> None:
+    make_workbook(files / "calc.xlsx", {"A1": "=SUMPRODUCT(A2:A2000000,A2:A2000000)"})
+
+    data = await read_values(call, "A1")
+
+    assert data["values"] == []
+    assert data["uncalculated"] == {"A1": "too much to calculate"}
+
+
+async def test_dates_come_back_as_dates(call: ToolCall, files: Path) -> None:
+    workbook = Workbook()
+    sheet = workbook.worksheets[0]
+    sheet.title = "Data"
+    sheet["A1"] = "=DATE(2024,2,29)+1"
+    sheet["A1"].number_format = "yyyy-mm-dd"
+    workbook.save(files / "calc.xlsx")
+
+    data = await read_values(call, "A1")
+
+    assert data["values"] == [["2024-03-01"]]
+
+
+async def test_errors_are_values(call: ToolCall, files: Path) -> None:
+    make_workbook(files / "calc.xlsx", {"A1": "=1/0", "A2": '=IFERROR(A1,"x")'})
+
+    data = await read_values(call, "A1:A2")
+
+    assert data["values"] == [["#DIV/0!"], ["x"]]
+
+
+async def test_other_sheets_and_names(call: ToolCall, files: Path) -> None:
+    workbook = Workbook()
+    sheet = workbook.worksheets[0]
+    sheet.title = "Data"
+    other = workbook.create_sheet("My Sheet")
+    other["A1"] = 5
+    other["A2"] = 6
+    sheet["A1"] = "=SUM('My Sheet'!A1:A2)*Rate"
+    workbook.defined_names["Rate"] = DefinedName("Rate", attr_text="'My Sheet'!$A$1")
+    workbook.save(files / "calc.xlsx")
+
+    data = await read_values(call, "A1")
+
+    assert data["values"] == [[55]]
+
+
+async def test_written_formulas_get_storage_prefixes(call: ToolCall, sample: Path) -> None:
+    await call(
+        "write_range",
+        path="sales.xlsx",
+        sheet="Report",
+        at="A1",
+        rows=[['=IFS(Data!C2>5,"a",TRUE,"b")', "=SORT(Data!C2:C5)"], ["=SUM(Data!C2:C5)"]],
+    )
+
+    sheet = load_workbook(sample)["Report"]
+    assert sheet["A1"].value == '=_xlfn.IFS(Data!C2>5,"a",TRUE,"b")'
+    assert sheet["B1"].value.text == "=_xlfn._xlws.SORT(Data!C2:C5)"
+    assert sheet["A2"].value == "=SUM(Data!C2:C5)"
+    data = await call("read_range", path="sales.xlsx", sheet="Report")
+    assert data["values"] == [["a", 3], [25, 5], [None, 7], [None, 10]]
+
+
+@pytest.mark.parametrize(
+    ("formula", "expected"),
+    [
+        ("=IFS(A1,1)", "=_xlfn.IFS(A1,1)"),
+        ("=_xlfn.IFS(A1,1)", "=_xlfn.IFS(A1,1)"),
+        ('=TEXTJOIN(",",TRUE,"IFS(")', '=_xlfn.TEXTJOIN(",",TRUE,"IFS(")'),
+        ("=STDEV.S(A1:A3)+STDEV(A1:A3)", "=_xlfn.STDEV.S(A1:A3)+STDEV(A1:A3)"),
+        ("=SUM(A1)", "=SUM(A1)"),
+        # As Excel itself stores the formulas (Formula2 saved to a file).
+        (
+            "=MAP(A1:A5,LAMBDA(x,x*2))",
+            "=_xlfn.MAP(A1:A5,_xlfn.LAMBDA(_xlpm.x,_xlpm.x*2))",
+        ),
+        (
+            "=BYROW(A1:B5,LAMBDA(r,SUM(r)))",
+            "=_xlfn.BYROW(A1:B5,_xlfn.LAMBDA(_xlpm.r,SUM(_xlpm.r)))",
+        ),
+        (
+            "=REDUCE(0,A1:A5,LAMBDA(a,b,a+b))",
+            "=_xlfn.REDUCE(0,A1:A5,_xlfn.LAMBDA(_xlpm.a,_xlpm.b,_xlpm.a+_xlpm.b))",
+        ),
+        ("=LAMBDA(x,ISOMITTED(x))(1)", "=_xlfn.LAMBDA(_xlpm.x,_xlfn.ISOMITTED(_xlpm.x))(1)"),
+        (
+            "=BYCOL(A1:B5,LAMBDA(c,SUM(c)))",
+            "=_xlfn.BYCOL(A1:B5,_xlfn.LAMBDA(_xlpm.c,SUM(_xlpm.c)))",
+        ),
+        ("=VALUETOTEXT(A1)", "=_xlfn.VALUETOTEXT(A1)"),
+        ("=ARRAYTOTEXT(A1:B2)", "=_xlfn.ARRAYTOTEXT(A1:B2)"),
+    ],
+)
+def test_add_prefixes(formula: str, expected: str) -> None:
+    assert add_prefixes(formula) == expected
+
+
+async def test_today_and_now(call: ToolCall, files: Path) -> None:
+    make_workbook(files / "calc.xlsx", {"A1": "=TODAY()", "A2": "=INT(NOW())"})
+
+    data = await read_values(call, "A1:A2")
+
+    today = (dt.date.today() - dt.date(1899, 12, 30)).days
+    assert data["values"] == [[today], [today]]
+
+
+async def test_running_balance_of_2000_rows(call: ToolCall, files: Path) -> None:
+    workbook = Workbook()
+    sheet = workbook.worksheets[0]
+    sheet.title = "Data"
+    for row in range(1, 2001):
+        sheet.cell(row, 1, row % 7 + 1)
+        sheet.cell(row, 2, "=A1" if row == 1 else f"=B{row - 1}+A{row}")
+    workbook.save(files / "calc.xlsx")
+
+    data = await read_values(call, "B2000")
+
+    assert data["values"] == [[sum(row % 7 + 1 for row in range(1, 2001))]]
+
+
+async def test_amortization_schedule_read_from_its_last_row(call: ToolCall, files: Path) -> None:
+    workbook = Workbook()
+    sheet = workbook.worksheets[0]
+    sheet.title = "Data"
+    sheet["A1"], sheet["A2"], sheet["A3"] = 250000, 0.065, 360
+    for month in range(1, 361):
+        row = month + 4
+        sheet[f"A{row}"] = month
+        sheet[f"B{row}"] = "=$A$1" if month == 1 else f"=F{row - 1}"
+        sheet[f"D{row}"] = f"=-IPMT($A$2/12,A{row},$A$3,$A$1)"
+        sheet[f"E{row}"] = f"=-PPMT($A$2/12,A{row},$A$3,$A$1)"
+        sheet[f"F{row}"] = f"=B{row}-E{row}"
+    workbook.save(files / "calc.xlsx")
+
+    data = await read_values(call, "F364")
+
+    assert abs(data["values"][0][0]) < 1e-6
+
+
+async def test_formulas_are_shown_as_typed(call: ToolCall, files: Path) -> None:
+    make_workbook(files / "calc.xlsx", {"A1": 3, "A2": 1, "A3": 2})
+    typed = {
+        "C1": "=SORT(A1:A3)",
+        "D1": "=LET(x,A1,x*2)",
+        "E1": "=SUM(C1#)",
+        "F1": "=IFS(A1>1,1)",
+    }
+    for cell, formula in typed.items():
+        await call("write_range", path="calc.xlsx", sheet="Data", at=cell, rows=[[formula]])
+    await call("set_defined_name", path="calc.xlsx", name="Total", refers_to="=SUM(C1#)")
+
+    shown = await call("read_range", path="calc.xlsx", sheet="Data", range="C1:F1", mode="formulas")
+    found = await call("find_cells", path="calc.xlsx", query="SORT", mode="formulas")
+    names = (await call("describe_workbook", path="calc.xlsx"))["defined_names"]
+
+    assert shown["values"] == [list(typed.values())]
+    assert found["matches"] == {"Data": {"C1": "=SORT(A1:A3)"}}
+    assert names[0]["refers_to"] == "SUM(C1#)"
+    with ZipFile(files / "calc.xlsx") as archive:
+        stored = archive.read("xl/worksheets/sheet1.xml").decode()
+    assert "_xlfn._xlws.SORT(A1:A3)" in stored
+    assert "_xlfn.LET(_xlpm.x,A1,_xlpm.x*2)" in stored
+    assert "_xlfn.ANCHORARRAY(C1)" in stored
+
+
+async def test_text_starting_with_equals_is_not_a_formula_error(
+    call: ToolCall, files: Path
+) -> None:
+    make_workbook(files / "calc.xlsx", {"A1": "=== header ==="})
+
+    data = await call("read_range", path="calc.xlsx", sheet="Data", mode="formulas")
+
+    assert data["values"] == [["=== header ==="]]
+
+
+async def test_hyperlink_is_its_friendly_name_or_its_link(call: ToolCall, files: Path) -> None:
+    """Results as Excel gives them; the formulas are stored as a file from Excel has them."""
+    formulas = {
+        "B1": '=HYPERLINK("http://a.test","Go")',
+        "B2": '=HYPERLINK("http://a.test")',
+        "B3": '=HYPERLINK("http://a.test",5)',
+        "B4": '=HYPERLINK("http://a.test",A5)',
+        "B5": "=HYPERLINK(A5)",
+        "B6": "=HYPERLINK(5)",
+        "B7": '=HYPERLINK("a",A1)',
+        "B8": '=HYPERLINK("a",1/0)',
+    }
+    make_workbook(files / "calc.xlsx", {"A1": "text", **formulas})
+
+    data = await read_values(call, "B1:B8")
+
+    assert data["values"] == [
+        ["Go"],
+        ["http://a.test"],
+        [5],
+        [0],
+        [""],
+        ["5"],
+        ["text"],
+        ["#DIV/0!"],
+    ]
+
+
+async def test_exp_of_a_huge_number_is_a_num_error(call: ToolCall, files: Path) -> None:
+    make_workbook(files / "calc.xlsx", {"B1": "=EXP(1000)", "B2": "=EXP(0)"})
+
+    data = await read_values(call, "B1:B2")
+
+    assert data["values"] == [["#NUM!"], [1]]
+
+
+async def test_whole_number_cells_calculate_as_doubles(call: ToolCall, files: Path) -> None:
+    chain = "^".join(["A1"] * 20)
+    make_workbook(
+        files / "calc.xlsx",
+        {"A1": 3, "A2": 10**30, "B1": f"={chain}", "B2": "=A1^A1^A1", "B3": "=MOD(A2,7)"},
+    )
+
+    data = await read_values(call, "B1:B3")
+
+    assert data["values"] == [["#NUM!"], [19683], ["#NUM!"]]
+    assert "uncalculated" not in data
+
+
+async def test_a_whole_number_cell_beyond_a_double_is_uncalculated(
+    call: ToolCall, files: Path
+) -> None:
+    source = files / "calc.xlsx"
+    make_workbook(source, {"A1": 12345, "B1": "=A1+1"})
+    with ZipFile(source) as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    parts["xl/worksheets/sheet1.xml"] = parts["xl/worksheets/sheet1.xml"].replace(
+        b"<v>12345</v>", b"<v>1" + b"0" * 400 + b"</v>"
+    )
+    with ZipFile(source, "w") as archive:
+        for name, content in parts.items():
+            archive.writestr(name, content)
+
+    data = await read_values(call, "B1")
+
+    assert list(data["uncalculated"]) == ["B1"]
+
+
+@pytest.mark.parametrize(
+    ("formula", "expected"),
+    [
+        ("=" + "^".join(["3"] * 20), "#NUM!"),
+        ("=POWER(-1,1E15)", "#NUM!"),
+        ("=POWER(-1,4294967294)", 1),
+        ("=COMBIN(1030,515)", "#NUM!"),
+        ("=COMBIN(1E10,1)", "#NUM!"),
+        ("=PERMUT(100000,70)", "#NUM!"),
+        ("=MOD(1E14,3)", "#NUM!"),
+        ("=MOD(1E12,3)", 1),
+        ("=QUOTIENT(1E300,1E-300)", "#NUM!"),
+        ("=GCD(1E16,2)", "#NUM!"),
+        ("=LCM(1E15,11)", "#NUM!"),
+        ("=LCM(1E15,7)", 7e15),
+        ("=SINH(710)", "#NUM!"),
+        ("=COSH(-710)", "#NUM!"),
+        ("=SIN(2^27)", "#NUM!"),
+        ("=CEILING(1E307,1E-10)", "#NUM!"),
+        ("=ROUND(1E307,300)", 1e307),
+    ],
+)
+async def test_overflow_gives_the_error_excel_gives(
+    call: ToolCall, files: Path, formula: str, expected: object
+) -> None:
+    make_workbook(files / "calc.xlsx", {"B1": formula})
+
+    data = await read_values(call, "B1")
+
+    assert data["values"] == [[expected]]
+    assert "uncalculated" not in data

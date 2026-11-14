@@ -1,0 +1,146 @@
+"""Checks on what clients see: schemas, annotations, errors and modes."""
+
+import json
+from pathlib import Path
+from typing import Any
+
+import pytest
+from mcp import Client
+
+from excel_mcp.config import Settings
+from excel_mcp.server import create_server
+from tests.conftest import error_text
+
+pytestmark = pytest.mark.anyio
+
+# Parameters whose name says it all; the server instructions explain paths and A1 notation.
+SELF_EXPLAINING = {
+    "path", "sheet", "range", "at", "cell", "query", "text", "author", "name", "count",
+    "max_results", "content_base64",
+}  # fmt: skip
+
+
+def _untyped_schemas(schema: Any, where: str = "") -> list[str]:
+    """Find sub-schemas without a type, which clients such as Gemini CLI reject."""
+    found: list[str] = []
+    if isinstance(schema, dict):
+        is_schema = "properties" in schema or "items" in schema or "type" in schema
+        has_type = any(key in schema for key in ("type", "anyOf", "oneOf", "allOf", "$ref"))
+        if (is_schema and not has_type) or schema == {}:
+            found.append(where)
+        for key, value in schema.items():
+            found += _untyped_schemas(value, f"{where}.{key}")
+    elif isinstance(schema, list):
+        for index, value in enumerate(schema):
+            found += _untyped_schemas(value, f"{where}[{index}]")
+    return found
+
+
+async def test_every_tool_is_documented_and_typed(client: Client) -> None:
+    tools = (await client.list_tools()).tools
+    assert len(tools) == 46
+    for tool in tools:
+        assert tool.title, tool.name
+        assert tool.description and not tool.description.startswith(" "), tool.name
+        assert tool.annotations is not None, tool.name
+        assert tool.annotations.open_world_hint is False, tool.name
+        assert _untyped_schemas(tool.input_schema) == [], tool.name
+        for name, prop in tool.input_schema["properties"].items():
+            explained = (
+                bool({"description", "$ref", "enum"} & prop.keys()) or prop.get("type") == "boolean"
+            )
+            assert explained or name in SELF_EXPLAINING, (tool.name, name)
+
+
+async def test_schema_budget(files: Path) -> None:
+    """Every tool's description and schema is paid for in each client's context."""
+    for allow_vba_write, budget in ((False, 51_380), (True, 52_380)):
+        settings = Settings(allowed_dirs=[files], allow_vba_write=allow_vba_write)
+        async with Client(create_server(settings)) as client:
+            tools = (await client.list_tools()).tools
+        size = sum(
+            len(tool.description or "") + len(json.dumps(tool.input_schema, separators=(",", ":")))
+            for tool in tools
+        )
+        assert size <= budget, f"{size} characters of tool schema; the budget is {budget}"
+        outputs = sum(
+            len(json.dumps(tool.output_schema, separators=(",", ":")))
+            for tool in tools
+            if tool.output_schema
+        )
+        assert outputs <= 8_745, f"{outputs} characters of output schemas; the budget is 8,745"
+
+
+async def test_only_tools_that_return_data_advertise_an_output_schema(
+    client: Client, sample: Path
+) -> None:
+    """outputSchema is optional; a receipt still arrives as structured content."""
+    tools = (await client.list_tools()).tools
+    for tool in tools:
+        reads = bool(tool.annotations and tool.annotations.read_only_hint)
+        assert (tool.output_schema is not None) == (reads and tool.name != "export_workbook"), (
+            tool.name
+        )
+    result = await client.call_tool("create_sheet", {"path": "sales.xlsx", "new_name": "Extra"})
+    assert result.structured_content == {"sheet": "Extra"}
+
+
+async def test_tool_order_is_stable(files: Path) -> None:
+    names = []
+    for _ in range(2):
+        async with Client(create_server(Settings(allowed_dirs=[files]))) as client:
+            names.append([tool.name for tool in (await client.list_tools()).tools])
+    assert names[0] == names[1]
+
+
+async def test_read_only_mode_registers_only_read_tools(files: Path) -> None:
+    async with Client(create_server(Settings(allowed_dirs=[files], read_only=True))) as client:
+        tools = (await client.list_tools()).tools
+    assert {tool.name for tool in tools} == {
+        "describe_workbook",
+        "list_workbooks",
+        "export_workbook",
+        "describe_sheet",
+        "read_range",
+        "find_cells",
+        "read_vba",
+        "trace_formula",
+    }
+    assert all(tool.annotations and tool.annotations.read_only_hint for tool in tools)
+
+
+async def test_errors_are_tool_errors_with_helpful_text(client: Client) -> None:
+    result = await client.call_tool("read_range", {"path": "missing.xlsx", "sheet": "Data"})
+    assert result.is_error
+    assert "does not exist" in error_text(result)
+
+
+async def test_invalid_arguments_are_rejected_before_running(client: Client) -> None:
+    result = await client.call_tool(
+        "insert_rows_or_columns", {"path": "a.xlsx", "sheet": "S", "axis": "diagonal", "at": 1}
+    )
+    assert result.is_error
+
+
+async def test_unknown_nested_field_is_rejected(client: Client) -> None:
+    result = await client.call_tool(
+        "set_sheet_layout",
+        {"path": "a.xlsx", "sheet": "S", "layout": {"print": {"orientation": "landscape"}}},
+    )
+    assert result.is_error
+    message = error_text(result)
+    assert "layout.print: unknown field; did you mean 'print_setup'?" in message
+
+
+async def test_unknown_top_level_argument_is_rejected(client: Client) -> None:
+    result = await client.call_tool("read_range", {"path": "a.xlsx", "sheet": "S", "rnge": "A1"})
+    assert result.is_error
+    message = error_text(result)
+    assert "rnge: unknown field; did you mean 'range'?" in message
+
+
+async def test_instructions_describe_path_mode(files: Path, tmp_path: Path) -> None:
+    confined = create_server(Settings(allowed_dirs=[files]))
+    assert "relative" in (confined.instructions or "")
+    unconfined = create_server(Settings())
+    assert "absolute paths" in (unconfined.instructions or "")

@@ -1,0 +1,380 @@
+"""Chart options, new chart types, chart listing and deletion, checked in the saved file."""
+
+import zipfile
+from pathlib import Path
+from typing import Any
+from xml.etree import ElementTree
+
+import pytest
+from openpyxl import Workbook
+
+from tests.conftest import ToolCall
+
+pytestmark = pytest.mark.anyio
+
+ALL_TYPES = ["column", "bar", "line", "area", "pie", "scatter", "doughnut", "radar"]
+
+
+async def add_chart(
+    call: ToolCall, chart_type: str = "column", source: str = "Data!B1:D5", **options: Any
+) -> None:
+    await call(
+        "create_chart",
+        path="sales.xlsx",
+        sheet="Report",
+        source=source,
+        chart_type=chart_type,
+        at="B2",
+        options=options,
+    )
+
+
+def chart_xml(path: Path, number: int = 1) -> ElementTree.Element:
+    with zipfile.ZipFile(path) as archive:
+        return ElementTree.fromstring(archive.read(f"xl/charts/chart{number}.xml"))
+
+
+def saved_chart_count(path: Path) -> int:
+    with zipfile.ZipFile(path) as archive:
+        return len([n for n in archive.namelist() if n.startswith("xl/charts/chart")])
+
+
+def elements(root: ElementTree.Element, tag: str) -> list[ElementTree.Element]:
+    return [node for node in root.iter() if node.tag.rpartition("}")[2] == tag]
+
+
+def values(root: ElementTree.Element, tag: str) -> list[str | None]:
+    return [node.get("val") for node in elements(root, tag)]
+
+
+async def test_title_and_legend_sit_beside_the_plot(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, title="Sales", x_axis={"title": "Month"}, y_axis={"title": "Units"})
+    assert values(chart_xml(sample), "overlay") == ["0", "0", "0", "0"]
+
+
+@pytest.mark.parametrize("chart_type", ["line", "scatter"])
+async def test_lines_are_straight_by_default(call: ToolCall, sample: Path, chart_type: str) -> None:
+    await add_chart(call, chart_type)
+    assert set(values(chart_xml(sample), "smooth")) == {"0"}
+
+
+async def test_combo_secondary_axis_has_no_extra_gridlines(call: ToolCall, sample: Path) -> None:
+    await add_combo(call)
+    root = chart_xml(sample)
+    assert len(elements(root, "majorGridlines")) == 1
+    assert values(elements(root, "lineChart")[0], "smooth") == ["0"]
+
+
+async def test_legend_position(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, legend="left")
+    assert values(chart_xml(sample), "legendPos") == ["l"]
+
+
+async def test_legend_none_hides_the_legend(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, legend="none")
+    assert elements(chart_xml(sample), "legend") == []
+
+
+async def test_data_labels(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, data_labels={})
+    root = chart_xml(sample)
+    assert values(root, "showVal") == ["1", "1"]
+    assert set(values(root, "showPercent")) == {"0"}
+
+
+async def test_data_labels_are_off_by_default(call: ToolCall, sample: Path) -> None:
+    await add_chart(call)
+    assert elements(chart_xml(sample), "dLbls") == []
+
+
+async def test_bar_charts_list_rows_top_down(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "bar")
+    root = chart_xml(sample)
+    category_axis, value_axis = elements(root, "catAx")[0], elements(root, "valAx")[0]
+    assert values(category_axis, "orientation") == ["maxMin"]
+    assert values(value_axis, "crosses") == ["max"]
+
+
+async def test_column_charts_keep_their_order(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "column")
+    assert values(elements(chart_xml(sample), "catAx")[0], "orientation") == ["minMax"]
+
+
+@pytest.mark.parametrize(
+    ("chart_type", "grouping", "expected"),
+    [
+        ("column", "stacked", "stacked"),
+        ("bar", "percent_stacked", "percentStacked"),
+        ("area", "stacked", "stacked"),
+        ("line", "percent_stacked", "percentStacked"),
+        ("column", "standard", "clustered"),
+    ],
+)
+async def test_grouping(
+    call: ToolCall, sample: Path, chart_type: str, grouping: str, expected: str
+) -> None:
+    await add_chart(call, chart_type, grouping=grouping)
+    root = chart_xml(sample)
+    assert expected in values(root, "grouping")
+    stacked = grouping != "standard" and chart_type in ("column", "bar")
+    assert (values(root, "overlap") == ["100"]) is stacked
+
+
+async def test_colors_fill_series_in_order(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, colors=["#1F4E78", "c00000"])
+    series = elements(chart_xml(sample), "ser")
+    fills = [values(elements(item, "spPr")[0], "srgbClr") for item in series]
+    assert fills == [["1F4E78"], ["C00000"]]
+
+
+async def test_fewer_colors_leave_other_series_alone(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, colors=["#1F4E78"])
+    series = elements(chart_xml(sample), "ser")
+    assert values(series[0], "srgbClr") == ["1F4E78"]
+    assert values(series[1], "srgbClr") == []
+
+
+async def test_line_colors_color_the_line(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "line", colors=["#112233", "#445566"], markers=True)
+    series = elements(chart_xml(sample), "ser")
+    line_colors = [values(elements(item, "ln")[0], "srgbClr") for item in series]
+    assert line_colors == [["112233"], ["445566"]]
+    assert values(series[0], "symbol") == ["circle"]
+
+
+@pytest.mark.parametrize("chart_type", ["pie", "doughnut"])
+async def test_round_charts_color_each_slice(call: ToolCall, sample: Path, chart_type: str) -> None:
+    await add_chart(call, chart_type, source="Data!B1:C5", colors=["#111111", "#222222", "#333333"])
+    points = elements(chart_xml(sample), "dPt")
+    colors = [values(point, "srgbClr") for point in points]
+    assert colors == [["111111"], ["222222"], ["333333"], []]
+    assert values(points[3], "schemeClr") == ["accent4", "lt1"]
+
+
+async def test_color_errors(call_error: ToolCall, sample: Path) -> None:
+    assert "Invalid color" in await call_error(
+        "create_chart",
+        path="sales.xlsx",
+        sheet="Data",
+        source="Data!B1:C5",
+        chart_type="column",
+        at="G1",
+        options={"colors": ["red"]},
+    )
+    assert "3 colors given for 1 series" in await call_error(
+        "create_chart",
+        path="sales.xlsx",
+        sheet="Data",
+        source="Data!B1:C5",
+        chart_type="column",
+        at="G1",
+        options={"colors": ["#111111", "#222222", "#333333"]},
+    )
+    assert "4 slices" in await call_error(
+        "create_chart",
+        path="sales.xlsx",
+        sheet="Data",
+        source="Data!B1:C5",
+        chart_type="pie",
+        at="G1",
+        options={"colors": ["#111111"] * 5},
+    )
+
+
+async def test_line_markers_and_smooth(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "line", source="Data!C1:D5", markers=True, smooth=True)
+    root = chart_xml(sample)
+    assert set(values(root, "symbol")) == {"circle"}
+    assert set(values(root, "smooth")) == {"1"}
+
+
+async def test_line_has_no_markers_by_default(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "line", source="Data!C1:D5")
+    assert set(values(chart_xml(sample), "symbol")) == {"none"}
+
+
+async def test_scatter_plots_points_without_lines(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "scatter", source="Data!C1:D5", colors=["#112233"])
+    series = elements(chart_xml(sample), "ser")[0]
+    assert values(series, "symbol") == ["circle"]
+    assert len(elements(elements(series, "ln")[0], "noFill")) == 1
+    assert "112233" in values(elements(series, "marker")[0], "srgbClr")
+
+
+async def test_axis_range_and_number_format(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, y_axis={"min": 0, "max": 1.5, "number_format": "#,##0"})
+    root = chart_xml(sample)
+    assert [float(value or "") for value in values(root, "min")] == [0]
+    assert [float(value or "") for value in values(root, "max")] == [1.5]
+    number_format = elements(elements(root, "valAx")[0], "numFmt")[0]
+    assert number_format.get("formatCode") == "#,##0"
+    assert number_format.get("sourceLinked") == "0"
+
+
+async def test_secondary_axis_line_combo(call: ToolCall, sample: Path) -> None:
+    await add_combo(
+        call,
+        colors=["#111111", "#222222"],
+        data_labels={},
+        y_axis={"title": "Units"},
+        secondary_y_axis={"title": "Price"},
+    )
+    root = chart_xml(sample)
+    (bars,) = elements(root, "barChart")
+    (lines,) = elements(root, "lineChart")
+    assert [f.text for f in elements(elements(bars, "tx")[0], "f")] == ["'Data'!$C$1"]
+    assert [f.text for f in elements(elements(lines, "tx")[0], "f")] == ["'Data'!$D$1"]
+    assert values(bars, "srgbClr") == ["111111"]
+    assert "222222" in values(lines, "srgbClr")
+    assert values(bars, "showVal") == ["1"] and values(lines, "showVal") == ["1"]
+    assert len(elements(root, "valAx")) == 2
+    assert "max" in values(root, "crosses")
+    assert values(root, "delete") == ["0", "0", "1", "0"]
+
+
+async def test_combo_survives_later_edits(call: ToolCall, sample: Path) -> None:
+    await add_combo(call)
+    await call("write_range", path="sales.xlsx", sheet="Report", at="A1", rows=[["x"]])
+    root = chart_xml(sample)
+    assert len(elements(root, "barChart")) == len(elements(root, "lineChart")) == 1
+    assert values(root, "delete") == ["0", "0", "1", "0"]
+
+
+async def add_combo(call: ToolCall, **options: Any) -> None:
+    """Units as columns, Price as a line on a second axis."""
+    await call(
+        "create_chart",
+        path="sales.xlsx",
+        sheet="Report",
+        chart_type="column",
+        at="B2",
+        categories="Data!B2:B5",
+        series=[
+            {"values": "Data!C2:C5", "name": "Data!C1"},
+            {"values": "Data!D2:D5", "name": "Data!D1", "type": "line", "secondary_axis": True},
+        ],
+        options=options,
+    )
+
+
+@pytest.mark.parametrize(
+    ("chart_type", "options", "fragment"),
+    [
+        ("pie", {"grouping": "stacked"}, "grouping does not apply to pie"),
+        ("scatter", {"grouping": "stacked"}, "grouping does not apply to scatter"),
+        ("column", {"markers": True}, "markers does not apply to column"),
+        ("area", {"smooth": True}, "smooth does not apply to area"),
+        ("scatter", {"markers": True}, "markers does not apply to scatter"),
+        ("scatter", {"smooth": True}, "smooth does not apply to scatter"),
+        ("column", {"scatter_style": "lines"}, "scatter_style does not apply to column"),
+        ("doughnut", {"y_axis": {"min": 0}}, "doughnut charts have no axes"),
+        ("pie", {"x_axis": {"title": "t"}}, "pie charts have no axes"),
+        ("column", {"y_axis": {"min": 5, "max": 5}}, "y_axis.min (5.0) must be below"),
+        ("column", {"x_axis": {"min": 1}}, "category axis"),
+        ("column", {"y_axis": {"log": True, "min": 0}}, "above zero"),
+        ("column", {"secondary_y_axis": {"title": "t"}}, "no series has secondary_axis"),
+        ("column", {"legend": "middle"}, "legend"),
+        ("column", {"title_font": 3}, "unknown field"),
+    ],
+)
+async def test_options_that_do_not_fit_are_rejected(
+    call_error: ToolCall, sample: Path, chart_type: str, options: dict[str, Any], fragment: str
+) -> None:
+    message = await call_error(
+        "create_chart",
+        path="sales.xlsx",
+        sheet="Data",
+        source="B1:C5",
+        chart_type=chart_type,
+        at="G1",
+        options=options,
+    )
+    assert fragment in message
+    assert saved_chart_count(sample) == 0
+
+
+@pytest.mark.parametrize(
+    ("chart_type", "tag"), [("doughnut", "doughnutChart"), ("radar", "radarChart")]
+)
+async def test_new_chart_types(call: ToolCall, sample: Path, chart_type: str, tag: str) -> None:
+    await add_chart(call, chart_type, title="T")
+    assert len(elements(chart_xml(sample), tag)) == 1
+    details = await call("describe_sheet", path="sales.xlsx", sheet="Report")
+    assert details["charts"][0]["type"] == chart_type
+
+
+@pytest.mark.parametrize("chart_type", ALL_TYPES)
+async def test_axes_stay_visible_after_later_edits(
+    call: ToolCall, sample: Path, chart_type: str
+) -> None:
+    await add_chart(call, chart_type, source="Data!B1:C5")
+    await call("write_range", path="sales.xlsx", sheet="Report", at="A1", rows=[["x"]])
+    expected = ["0", "0"] if chart_type not in ("pie", "doughnut") else []
+    assert values(chart_xml(sample), "delete") == expected
+
+
+async def test_describe_sheet_lists_charts(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "bar", title="Horizontal")
+    await add_combo(call)
+    await add_chart(call, "pie", source="Data!B1:C5")
+    details = await call("describe_sheet", path="sales.xlsx", sheet="Report")
+    data = "'Data'!$"
+    assert details["charts"] == [
+        {
+            "name": "Chart 1",
+            "type": "bar",
+            "title": "Horizontal",
+            "range": "B2:J16",
+            "series": [f"{data}C$2:$C$5", f"{data}D$2:$D$5"],
+        },
+        {
+            "name": "Chart 2",
+            "type": "column",
+            "range": "B2:J16",
+            "series": [f"{data}C$2:$C$5", f"{data}D$2:$D$5"],
+        },
+        {
+            "name": "Chart 3",
+            "type": "pie",
+            "range": "B2:J16",
+            "series": [f"{data}C$2:$C$5"],
+        },
+    ]
+    assert "charts" not in await call("describe_sheet", path="sales.xlsx", sheet="Data")
+
+
+async def test_delete_chart(call: ToolCall, sample: Path) -> None:
+    await add_chart(call, "bar", title="First")
+    await add_chart(call, "line", title="Second")
+    deleted = await call("delete_chart", path="sales.xlsx", sheet="Report", name="Chart 1")
+    assert deleted == {"sheet": "Report", "name": "Chart 1", "range": "B2:J16"}
+    details = await call("describe_sheet", path="sales.xlsx", sheet="Report")
+    assert [(item["name"], item["type"], item["title"]) for item in details["charts"]] == [
+        ("Chart 2", "line", "Second")
+    ]
+    assert saved_chart_count(sample) == 1
+
+
+async def test_delete_chart_rejects_unknown_names(
+    call: ToolCall, call_error: ToolCall, sample: Path
+) -> None:
+    arguments = {"path": "sales.xlsx", "sheet": "Report"}
+    assert "has no charts" in await call_error("delete_chart", **arguments, name="Chart 1")
+    await add_chart(call)
+    await add_chart(call, "line")
+    message = await call_error("delete_chart", **arguments, name="Chart 3")
+    assert "no chart named 'Chart 3'" in message and "'Chart 1', 'Chart 2'" in message
+    assert saved_chart_count(sample) == 2
+    assert "not found" in await call_error(
+        "delete_chart", path="sales.xlsx", sheet="Nope", name="x"
+    )
+
+
+async def test_delete_chart_stays_inside_the_allowed_folder(
+    call: ToolCall, call_error: ToolCall, sample: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path / "outside.xlsx"
+    workbook = Workbook()
+    workbook.save(outside)
+    message = await call_error("delete_chart", path=str(outside), sheet="Sheet", name="Chart 1")
+    assert "outside" in message

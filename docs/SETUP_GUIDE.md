@@ -33,17 +33,22 @@
 
 ## 二、配置工具 1-3：`work-toolkit`（MCP + Skills + 装配台）
 
-### 2.1 可选第三方增强组件挂载（推荐）
+### 2.1 随仓内置的第三方引擎与一键依赖安装
 
-`packages/work-toolkit` 本身内置 `bin/officecli.exe`（v1.0.161）与全部 47 个主工具；如需解锁**语音转写 / 多模态深聊 / 高级 Excel(46工具) / Word(58工具) / Engram 长期记忆**，可按需挂载以下开源组件到 `packages/work-toolkit/mcp_servers/` 与 `bin/`：
+本仓库已直接附带完整源码与核心二进制，无需再手工克隆第三方仓库：
+- `packages/work-toolkit/bin/officecli.exe`（v1.0.161）与 `bin/engram.exe`（v3.7.1）
+- `packages/work-toolkit/mcp_servers/excel-mcp-server`（46 工具）
+- `packages/work-toolkit/mcp_servers/Office-Word-MCP-Server`（58 工具）
+- `packages/work-toolkit/mcp_servers/OfficeMCP`
+- `packages/work-toolkit/mcp_servers/wechat-chat-mcp`（语音转写/多模态深聊源码）
 
-| 组件 | 对应模块 | 部署路径与方式 |
-| :--- | :--- | :--- |
-| **wechat-chat-mcp** | `comms`（语音/PDF/深聊） | `git clone https://github.com/Haoea1024/wechat-chat-mcp packages/work-toolkit/mcp_servers/wechat-chat-mcp`，在其中创建独立 `.venv` 并执行 `pip install -e ".[mcp,media]"` |
-| **excel-mcp-server** | `office`（46 高级表格工具） | 克隆至 `packages/work-toolkit/mcp_servers/excel-mcp-server`（2.2.x） |
-| **Office-Word-MCP-Server** | `office`（58 高级文档工具） | 克隆至 `packages/work-toolkit/mcp_servers/Office-Word-MCP-Server` |
-| **Engram** | `memory`（`work_mem` 跨会话记忆） | 从 `Gentleman-Programming/engram` 下载 Windows `engram.exe` 放至 `packages/work-toolkit/bin/engram.exe` |
-| **ffmpeg**（可选） | `comms`（WXGF 原图转 PNG） | 安装 `ffmpeg` 并加入系统 `PATH` |
+一键安装全部 Python 依赖并初始化 `wechat-chat-mcp` 独立 `.venv`：
+
+```powershell
+python -X utf8 scripts/bootstrap.py --install
+```
+
+> 若需导出 WXGF 高清原图（`work_wechat_media prefer="orig"`），额外安装 `ffmpeg` 并加入系统 `PATH`。
 
 ### 2.2 接入 Codex（模块化独立 MCP + 薄 Skill）
 

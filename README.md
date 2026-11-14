@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](docs/SETUP_GUIDE.md)
-[![MCP Tools: 47](https://img.shields.io/badge/MCP%20Tools-47%2B21-111827.svg)](#五详细功能清单与实现原理)
+[![MCP Tools: 47](https://img.shields.io/badge/MCP%20Tools-47%2B20-111827.svg)](#五详细功能清单与实现原理)
 [![IDEs: 7](https://img.shields.io/badge/IDE%20Targets-7-111827.svg)](#4-instruct-unrestricted-破限控制中枢与-ide-规则编译器)
 [![Models: 18](https://img.shields.io/badge/Benchmark%20Models-18-111827.svg)](#5-modeltrace-attribution-黑盒模型归因与测谎系统)
 
@@ -22,7 +22,7 @@
 
 | 层级 | 模块 | 本质定位 | 核心能力一句话 | 形态 |
 | :--- | :--- | :--- | :--- | :--- |
-| **能力执行层** | **1. `work-comms`** | 微信 4.x / 企微只读取证引擎 | 内存提钥 + WAL 实时增量 + 图片解密 + 收件核对 + 语音/PDF 多模态协作 | MCP (23+21) · Skill · CLI |
+| **能力执行层** | **1. `work-comms`** | 微信 4.x / 企微只读取证引擎 | 内存提钥 + WAL 实时增量 + 图片解密 + 收件核对 + 语音/PDF 多模态协作 | MCP (23+20) · Skill · CLI |
 | **能力执行层** | **2. `work-office`** | 跨引擎文档表格处理中枢 | 跨表汇总核验 + Markdown 生 Word/PPT + 版本对比 + 套打 + 104 开源子工具 | MCP (18+104) · Skill · CLI |
 | **能力执行层** | **3. `work-memory`** | 双轨记忆与装配台 | 轨迹提炼「零探索 SOP」+ Engram 长期记忆 + 台账 + 网页可视化装配台 | MCP (4+2) · Skill · Web `:8765` |
 | **行为规约层** | **4. `instruct-unrestricted`** | 多端 AI IDE 规则编译器 | 原生编译/托管 7 大 IDE 规则，动态组装角色×严格度，消除无效拒答 | Python SDK · CLI · API `:5055` |
@@ -51,7 +51,8 @@ ai-agent-workbench/
 │   │   ├── experience/            # work_exp 轨迹提炼与参数化重放
 │   │   ├── skills/                # work-comms / work-office / work-memory / work-office-toolkit
 │   │   ├── web/                   # Codex 风格可视化装配台 (port 8765)
-│   │   └── bin/officecli.exe      # 内置 OfficeCLI v1.0.161
+│   │   ├── mcp_servers/           # 内置 4 大开源引擎源码 (excel/word/officemcp/wechat-chat)
+│   │   └── bin/                   # 内置 OfficeCLI v1.0.161 + Engram v3.7.1
 │   ├── instruct-unrestricted/     # 工具 4：7 大 IDE 引擎 + 动态组装器 + 编译器 + CLI
 │   └── modeltrace-attribution/    # 工具 5：18 模型基准库 + SpoofDetector + 并发探针 + CLI
 ├── services/core_api_server.py    # 工具 4 + 工具 5 联合 REST 微服务 (port 5055)
@@ -70,11 +71,8 @@ ai-agent-workbench/
 # 1. 克隆并安装依赖（按需选装）
 git clone https://github.com/zGuanZhe/ai-agent-workbench.git
 cd ai-agent-workbench
-python -m pip install -r scripts/requirements-toolkit.txt
-python -m pip install -r scripts/requirements-core.txt
-
-# 2. 一键校验全部 5 个模块
-python -X utf8 scripts/bootstrap.py
+# 自动安装全部工具依赖 + 初始化 wechat-chat-mcp 独立 .venv + 跑通 5 模块自检
+python -X utf8 scripts/bootstrap.py --install
 ```
 
 <details>
@@ -110,7 +108,7 @@ python -X utf8 services/core_api_server.py
 | :--- | :--- |
 | [架构解构指南 (`docs/ARCHITECTURE.md`)](docs/ARCHITECTURE.md) | 深入剖析三层五工具本质差异、安全边界与跨模块组合范式 |
 | [详细配置教程 (`docs/SETUP_GUIDE.md`)](docs/SETUP_GUIDE.md) | Codex `config.toml`、WorkBuddy、第三方增强组件与环境变量完整配置 |
-| [全量工具与接口手册 (`docs/TOOLS_REFERENCE.md`)](docs/TOOLS_REFERENCE.md) | 47 MCP 工具 + 21 `wechat_chat` 工具 + CLI + REST API 速查表 |
+| [全量工具与接口手册 (`docs/TOOLS_REFERENCE.md`)](docs/TOOLS_REFERENCE.md) | 47 MCP 工具 + 20 `wechat_chat` 工具 + CLI + REST API 速查表 |
 
 ---
 
@@ -120,7 +118,7 @@ python -X utf8 services/core_api_server.py
 
 ---
 
-### 1. `work-comms` — 微信 4.x / 企业微信感知与取证模块（23 + 21 工具）
+### 1. `work-comms` — 微信 4.x / 企业微信感知与取证模块（23 + 20 工具）
 
 #### 实现原理
 - **个人微信 4.x（`wechat/`）**：放弃失效的 `wxauto` 3.x 桌面自动化与下架的 `chatlog`，直读本地库。`wxkey.py` 从 `Weixin.exe` 内存提取 `Config.Cipher` 经 XOR 掩码的数据库密钥，并通过 Windows `CryptProtectData`（DPAPI 当前用户态）加密缓存于 `.keys.dpapi`；`wxdecrypt.py` 与 `wxread.py` 按 `(db_mtime, wal_mtime)` 做 4096B `-wal` 帧级增量补丁解密到只读副本，支持 zstd 长文解压。
@@ -222,7 +220,8 @@ python -X utf8 services/core_api_server.py
 ### 4. `instruct-unrestricted` — 破限控制中枢与 IDE 规则编译器
 
 #### 实现原理
-- **生命周期抽象（`engines/base_engine.py`）**：把 7 大客户端的不同规则路径和格式统一抽象为 `BaseIDEEngine`；计算文件内容时统一将 `
+- **生命周期抽象（`engines/base_engine.py`）**：把 7 大客户端的不同规则路径和格式统一抽象为 `BaseIDEEngine`；计算文件内容时统一将 `
+
 ` 规范化为 `
 ` 再求 SHA256，免疫跨平台换行符假漂移，实现 `intact / drifted / missing / unmanaged / clean` 5 态热感知；每次覆盖前生成 `.backup` 物理快照。
 - **片段组合编译（`composer/rule_composer.py`）**：将 `base_contract.md`、4 个角色片段与 3 个严格度片段按目标平台语法模板（如 Cursor `.mdc` YAML frontmatter）动态拼接编译。
