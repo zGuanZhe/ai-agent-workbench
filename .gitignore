@@ -1,0 +1,49 @@
+# Python & environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+node_modules/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# Logs & local runtime state
+*.log
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# work-toolkit local data & caches
+/packages/work-toolkit/workspace/**
+!/packages/work-toolkit/workspace/11_任务经验/
+!/packages/work-toolkit/workspace/11_任务经验/*.md
+/packages/work-toolkit/outputs/
+/packages/work-toolkit/web/.facts.json
+/packages/work-toolkit/web/console.html
+/packages/work-toolkit/mcp_servers/
+/packages/work-toolkit/bin/engram.exe
+/packages/work-toolkit/wechat/*.key
+/packages/work-toolkit/wechat/*.bin
+/packages/work-toolkit/wechat/key_result.json
+/packages/work-toolkit/wechat/pbkdf2_hits.json
+/packages/work-toolkit/wechat/scan_hits.json
+
+# instruct-unrestricted & modeltrace local runtime state
+/packages/instruct-unrestricted/data/unrestricted_workspace.json
+/services/data/
+
+# Local workspace pointer
+**/unrestricted_workspace.json
+/data/
+/packages/data/

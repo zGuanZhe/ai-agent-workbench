@@ -1,0 +1,83 @@
+# ============================================================================
+# 办公工具箱 · 上传白名单说明
+#
+# 本仓库只发布「代码 + 文档 + 配置样例」。所有本机数据一律不进版本控制：
+# 微信聊天数据库、解密密钥/日志、图片缓存、材料原件、测试产物、凭据文件。
+# 规则按「先整体排除敏感目录，再精确放行少量样例」书写。
+# 注意：.gitignore 只支持整行注释，# 必须写在行首。
+# ============================================================================
+
+# ---- 本机数据（最重要） ----
+/workspace/**
+!/workspace/11_任务经验/
+!/workspace/11_任务经验/*.md
+
+# ---- 运行产物与缓存 ----
+# outputs/ 内含浏览器会话凭据、测试截图、打包产物
+/outputs/
+# 本机环境快照（含微信账号目录）
+/web/.facts.json
+# 构建产物，内嵌本机 FACTS；安装时 build.py 生成
+/web/console.html
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+node_modules/
+*.log
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ---- 微信解密密钥与扫描结果（含 salt / wxid / 本机路径） ----
+/wechat/key_result.json
+/wechat/pbkdf2_hits.json
+/wechat/scan_hits.json
+/wechat/scan_result.log
+/wechat/scan_v4.log
+/wechat/*.key
+/wechat/*.bin
+
+# ---- 第三方仓库与二进制（体积大 / 许可证不在本项目） ----
+# mcp_servers/ 是本地挂载的上游 MCP 仓库，安装时按需自行获取
+/mcp_servers/
+# bin/officecli.exe 随仓库分发（第三方组件，授权见 bin/README.md）
+/tools/chatlog-src/
+/tools/rel.json
+/tools/SHA256SUMS.txt
+
+# ---- 早期 DSH 插件形态（已不作为主线发布） ----
+# VERIFICATION.txt 是旧验收记录，写满本机绝对路径
+/VERIFICATION.txt
+/cordis.yml
+/cordis.patch.yml
+/package.json
+/icon.svg
+/src/
+/client/
+/plugins/
+/test/
+/scripts/start-work-toolkit.ps1
+/scripts/start-native-work-profile.js
+
+# ---- 已停用的旧版记忆实现（不随仓库分发） ----
+/memory/
+
+# ---- 本地临时文件 ----
+.probe/
+.frontend_probe.py
+.exp_probe.py
+.fin_probe.py
+.lf_probe.py
+.m.json
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

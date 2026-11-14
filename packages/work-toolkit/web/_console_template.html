@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Work Console</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f8;
+  --bg-hover: #f1f1f2;
+  --line: #e5e5e7;
+  --line-strong: #d4d4d8;
+  --ink: #161619;
+  --ink-soft: #55555d;
+  --ink-faint: #686870;
+  --black: #111113;
+  --white: #ffffff;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --shadow: 0 6px 10px -6px rgba(0,0,0,.16), 0 1px 3px -2px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.55;
+  display: flex;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: #d9d9de; color: var(--ink); }
+:focus-visible { outline: 2px solid var(--black); outline-offset: 2px; }
+input, select, textarea, button { font: inherit; caret-color: var(--black); }
+input, select, textarea {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+  outline: none;
+}
+input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+input:focus, select:focus, textarea:focus { border-color: var(--black); box-shadow: 0 0 0 1px var(--black); }
+input:disabled, select:disabled, button:disabled { opacity: .45; cursor: not-allowed; }
+textarea { min-height: 84px; resize: vertical; }
+button { color: inherit; }
+svg { display: block; }
+.icon { width: 17px; height: 17px; flex: 0 0 auto; }
+.icon-sm { width: 14px; height: 14px; flex: 0 0 auto; }
+.rail {
+  width: 52px;
+  flex: 0 0 52px;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+}
+.rail button, .icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+.rail button:hover, .icon-btn:hover { background: var(--bg-hover); color: var(--ink); }
+.rail button.active { background: var(--white); border-color: var(--line); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.rail .rail-spacer { flex: 1; }
+.sidebar {
+  width: 224px;
+  flex: 0 0 224px;
+  background: #fafafa;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.brand { padding: 16px 16px 12px; display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  width: 24px; height: 24px; border: 1.5px solid var(--black); border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brand-name { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.brand-sub { font-size: 12px; color: var(--ink-faint); margin-top: 1px; }
+.side-label { padding: 14px 16px 6px; font-size: 12px; color: var(--ink-faint); letter-spacing: .04em; }
+.project-row { margin: 0 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.side-nav { padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
+.side-nav button {
+  border: 0; background: transparent; width: 100%; padding: 7px 10px; border-radius: 7px;
+  display: flex; align-items: center; gap: 9px; text-align: left; cursor: pointer; color: var(--ink-soft);
+}
+.side-nav button:hover { background: var(--bg-hover); color: var(--ink); }
+.side-nav button.active { background: var(--white); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.side-nav .nav-count { margin-left: auto; font-size: 12px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.side-foot { margin-top: auto; padding: 12px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-faint); word-break: break-all; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; background: var(--bg); }
+.topbar { height: 48px; flex: 0 0 48px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 22px; }
+.crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); }
+.crumb strong { color: var(--ink); font-weight: 600; }
+.crumb .sep { color: var(--line-strong); }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.badge { border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px; color: var(--ink-soft); background: var(--bg-soft); }
+.badge.error { border-color: var(--ink); color: var(--ink); }
+.content { flex: 1; overflow-y: auto; padding: 28px 34px 132px; scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
+.content::-webkit-scrollbar, .session-list::-webkit-scrollbar, .message-list::-webkit-scrollbar, .drawer-body::-webkit-scrollbar { width: 9px; height: 9px; }
+.content::-webkit-scrollbar-thumb, .session-list::-webkit-scrollbar-thumb, .message-list::-webkit-scrollbar-thumb, .drawer-body::-webkit-scrollbar-thumb { background: #d8d8dc; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+.view { display: none; max-width: 1120px; margin: 0 auto; }
+.view.active { display: block; }
+.page-head { margin-bottom: 22px; }
+.page-head h1 { font-size: 22px; line-height: 1.25; letter-spacing: -.025em; margin: 0 0 6px; font-weight: 650; }
+.page-head p { margin: 0; color: var(--ink-soft); max-width: 760px; }
+.section { margin-top: 26px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.section-head h2 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.section-head .hint { font-size: 12px; color: var(--ink-faint); }
+.note { font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+.panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); }
+.panel-pad { padding: 14px 16px; }
+.status-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--white); }
+.status-cell { padding: 11px 14px; border-right: 1px solid var(--line); min-width: 0; }
+.status-cell:last-child { border-right: 0; }
+.status-label { font-size: 12px; color: var(--ink-faint); }
+.status-value { margin-top: 3px; font-size: 14px; font-weight: 620; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.btn, .btn-sm {
+  border: 1px solid var(--line-strong); background: var(--white); color: var(--ink); border-radius: 6px;
+  padding: 6px 11px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px;
+  white-space: nowrap;
+}
+.btn-sm { padding: 4px 8px; font-size: 12px; }
+.btn-sm.active { background: var(--black); color: var(--white); border-color: var(--black); }
+.btn-sm.active:hover { background: var(--black); border-color: var(--black); color: var(--white); }
+.btn:hover, .btn-sm:hover { background: var(--bg-hover); border-color: var(--black); }
+.btn.primary { background: var(--black); color: var(--white); border-color: var(--black); }
+.btn.primary:hover { background: #2a2a2e; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.table { width: 100%; border-collapse: collapse; background: var(--white); }
+.table th, .table td { border-bottom: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; font-size: 12px; }
+.table th { color: var(--ink-faint); font-weight: 550; background: var(--bg-soft); position: sticky; top: 0; z-index: 1; }
+.table tr:last-child td { border-bottom: 0; }
+.table tbody tr:hover { background: #fafafa; }
+.table .mono, .mono { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.table .clamp { max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.table .nowrap { white-space: nowrap; }
+.table .path-cell { max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.files-table { table-layout: fixed; }
+.table-wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; max-height: 460px; padding: 8px; }
+.empty, .loading, .error { padding: 18px; color: var(--ink-faint); font-size: 12px; text-align: center; }
+.error { color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); text-align: left; }
+.switch { position: relative; display: inline-block; width: 34px; height: 19px; flex: 0 0 auto; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: #d4d4d8; border-radius: 999px; cursor: pointer; transition: background .18s ease; }
+.slider:before { content: ""; position: absolute; width: 15px; height: 15px; left: 2px; top: 2px; background: var(--white); border-radius: 50%; transition: transform .18s cubic-bezier(.2,.8,.2,1); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.switch input:checked + .slider { background: var(--black); }
+.switch input:checked + .slider:before { transform: translateX(15px); }
+.switch input:disabled + .slider { cursor: not-allowed; }
+.switch-text { font-size: 12px; color: var(--ink-faint); margin-left: 7px; }
+.facts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.fact-row { display: flex; gap: 16px; padding: 9px 14px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); min-width: 0; }
+.fact-row:nth-child(2n) { border-right: 0; }
+.fact-row:last-child, .fact-row:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+.fact-label { width: 110px; flex: 0 0 110px; color: var(--ink-faint); font-size: 12px; }
+.fact-value { min-width: 0; word-break: break-all; font-size: 12px; }
+.rule-list { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.rule-row { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 150px 1fr; gap: 14px; font-size: 12px; }
+.rule-row:last-child { border-bottom: 0; }
+.rule-row b { font-weight: 600; }
+.rule-row span { color: var(--ink-soft); }
+.subnav { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.subnav button { border: 0; background: transparent; padding: 7px 11px; cursor: pointer; color: var(--ink-soft); border-bottom: 2px solid transparent; font-size: 12px; }
+.subnav button:hover { color: var(--ink); background: var(--bg-hover); }
+.subnav button.active { color: var(--ink); border-bottom-color: var(--black); font-weight: 600; }
+.subview { display: none; }
+.subview.active { display: block; }
+.list-rows { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.list-row { padding: 10px 13px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 180px 1fr auto; gap: 12px; align-items: start; }
+.list-row:last-child { border-bottom: 0; }
+.list-row .name { font-weight: 600; }
+.list-row .meta { color: var(--ink-soft); font-size: 12px; word-break: break-word; }
+.list-row .state { font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
+.inline-metrics { display: flex; gap: 18px; flex-wrap: wrap; padding: 10px 0 8px; font-size: 12px; color: var(--ink-soft); }
+.inline-metrics b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.timeline { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.timeline-row { display: grid; grid-template-columns: 132px 1fr; gap: 12px; padding: 10px 13px; border-bottom: 1px solid var(--line); }
+.timeline-row:last-child { border-bottom: 0; }
+.timeline-time { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+.timeline-main { min-width: 0; }
+.timeline-title { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+.timeline-text { font-size: 12px; color: var(--ink-soft); word-break: break-word; white-space: pre-wrap; }
+.timeline-flags { margin-top: 5px; font-size: 12px; color: var(--ink-faint); display: flex; gap: 12px; flex-wrap: wrap; }
+.chat-layout { display: grid; grid-template-columns: 280px 1fr; gap: 8px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-height: 430px; padding: 8px; }
+.session-pane { border-right: 1px solid var(--line); background: var(--bg-soft); display: flex; flex-direction: column; min-height: 0; }
+.session-tools { padding: 9px; border-bottom: 1px solid var(--line); display: flex; gap: 6px; }
+.session-list { flex: 1; overflow-y: auto; max-height: 430px; }
+.session-row { padding: 9px 11px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.session-row:hover { background: var(--bg-hover); }
+.session-row.active { background: var(--white); box-shadow: inset 2px 0 0 var(--black); }
+.session-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-meta { font-size: 12px; color: var(--ink-faint); display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.session-preview { font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.message-pane { display: flex; flex-direction: column; min-width: 0; }
+.message-head { padding: 9px 13px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+.message-list { flex: 1; overflow-y: auto; max-height: 330px; padding: 4px 0; }
+.message-row { padding: 8px 13px; border-bottom: 1px solid var(--line); }
+.message-row:last-child { border-bottom: 0; }
+.message-meta { font-size: 12px; color: var(--ink-faint); display: flex; gap: 10px; flex-wrap: wrap; }
+.message-text { font-size: 12px; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
+.digest-form { border-top: 1px solid var(--line); padding: 10px 13px; background: var(--bg-soft); display: grid; grid-template-columns: 1.4fr .7fr .7fr 1.2fr auto; gap: 8px; align-items: end; }
+.form-field label { display: block; font-size: 12px; color: var(--ink-faint); margin-bottom: 3px; }
+.form-grid { display: grid; gap: 10px; }
+.form-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.form-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+.file-toolbar { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; margin-bottom: 10px; }
+.stats-line { padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 10px; font-size: 12px; color: var(--ink-soft); word-break: break-word; }
+.cap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.cap-row { display: grid; grid-template-columns: 130px 1fr; gap: 12px; padding: 9px 13px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); }
+.cap-row:nth-child(2n) { border-right: 0; }
+.cap-row:last-child, .cap-row:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+.cap-label { color: var(--ink-faint); font-size: 12px; }
+.cap-value { font-size: 12px; word-break: break-all; }
+.memory-graph { width: 100%; min-height: 330px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); }
+.graph-caption { font-size: 12px; color: var(--ink-faint); margin-top: 6px; }
+.catalog-list { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.catalog-row { padding: 10px 13px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 230px 90px 1fr; gap: 12px; }
+.catalog-row:last-child { border-bottom: 0; }
+.catalog-name { font-family: var(--mono); font-size: 12px; font-weight: 600; word-break: break-all; }
+.catalog-module { font-size: 12px; color: var(--ink-faint); }
+.catalog-desc { font-size: 12px; color: var(--ink-soft); }
+.custom-group { margin-top: 14px; }
+.custom-node { padding: 9px 13px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.custom-node:last-child { border-bottom: 0; }
+.workspace-grid { display: grid; grid-template-columns: 280px 1fr; gap: 14px; }
+.dir-list { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; max-height: 500px; overflow-y: auto; }
+.dir-row { padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.dir-row:last-child { border-bottom: 0; }
+.dir-row:hover { background: var(--bg-hover); }
+.dir-row.active { background: var(--white); box-shadow: inset 2px 0 0 var(--black); }
+.dir-row span:last-child { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.prompt-bar {
+  position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
+  width: min(780px, calc(100% - 68px)); background: var(--white);
+  border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow);
+  padding: 9px 11px 8px; z-index: 5;
+}
+.prompt-scope { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 7px; padding: 3px 8px; font-size: 12px; color: var(--ink-soft); margin-bottom: 7px; }
+.prompt-input { border: 0; box-shadow: none; padding: 2px 0; min-height: 28px; font-size: 13px; }
+.prompt-input:focus { box-shadow: none; }
+.prompt-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 5px; }
+.prompt-status { display: flex; gap: 14px; font-size: 12px; color: var(--ink-faint); flex-wrap: wrap; }
+.send-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--black); background: var(--black); color: var(--white); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.send-btn:hover { background: #2a2a2e; }
+.send-btn:disabled { opacity: .5; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(500px, 92vw); background: var(--white); border-left: 1px solid var(--line); box-shadow: -8px 0 10px -8px rgba(0,0,0,.24); transform: translateX(104%); transition: transform .28s cubic-bezier(.2,.8,.2,1); z-index: 20; display: flex; flex-direction: column; }
+.drawer.show { transform: translateX(0); }
+.drawer-head { height: 48px; flex: 0 0 48px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 13px; font-weight: 600; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 14px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.toast { position: fixed; right: 18px; bottom: 18px; z-index: 30; border: 1px solid var(--line-strong); background: var(--white); box-shadow: var(--shadow); padding: 8px 12px; border-radius: 7px; font-size: 12px; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { border-color: var(--black); }
+@media (max-width: 1100px) {
+  .sidebar { width: 198px; flex-basis: 198px; }
+  .content { padding-left: 22px; padding-right: 22px; }
+  .status-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .status-cell:nth-child(3) { border-right: 0; }
+  .status-cell:nth-child(n+4) { border-top: 1px solid var(--line); }
+  .digest-form { grid-template-columns: 1fr 1fr; }
+  .digest-form .form-actions { grid-column: 1 / -1; }
+}
+@media (max-width: 820px) {
+  .sidebar { display: none; }
+  .rail { width: 46px; flex-basis: 46px; }
+  .content { padding: 22px 16px 140px; }
+  .status-strip, .facts-grid, .cap-grid { grid-template-columns: 1fr; }
+  .status-cell, .fact-row, .cap-row { border-right: 0; }
+  .chat-layout, .workspace-grid { grid-template-columns: 1fr; }
+  .session-pane { border-right: 0; border-bottom: 1px solid var(--line); }
+  .form-grid.four, .form-grid.two, .file-toolbar { grid-template-columns: 1fr; }
+  .prompt-bar { width: calc(100% - 62px); }
+}
+@media (max-width: 560px) {
+  .list-row, .timeline-row, .catalog-row, .rule-row { grid-template-columns: 1fr; }
+  .list-row .state { text-align: left; }
+  .topbar { padding: 0 12px; }
+  .crumb .project { display: none; }
+  .prompt-bar { bottom: 10px; padding: 7px 9px; }
+  .prompt-scope { display: none; }
+  .prompt-status span:nth-child(n+2) { display: none; }
+  .prompt-input { font-size: 12px; min-height: 24px; }
+  .send-btn { width: 28px; height: 28px; }
+}
+</style>
+</head>
+<body>
+<div class="rail">
+  <button data-view="assembly" class="active" aria-label="装配" title="装配"><span data-icon="layers"></span></button>
+  <button data-view="comms" aria-label="通讯" title="通讯"><span data-icon="chat"></span></button>
+  <button data-view="office" aria-label="Office" title="Office"><span data-icon="file"></span></button>
+  <button data-view="memory" aria-label="记忆" title="记忆"><span data-icon="brain"></span></button>
+  <button data-view="trace" aria-label="轨迹" title="轨迹"><span data-icon="activity"></span></button>
+  <button data-view="tools" aria-label="工具目录" title="工具目录"><span data-icon="grid"></span></button>
+  <button data-view="workspace" aria-label="工作区" title="工作区"><span data-icon="folder"></span></button>
+  <div class="rail-spacer"></div>
+  <button data-view="assembly" aria-label="回到装配" title="回到装配"><span data-icon="settings"></span></button>
+</div>
+<aside class="sidebar">
+  <div class="brand">
+    <span class="brand-mark"><span data-icon="mark"></span></span>
+    <div><div class="brand-name">Work Console</div><div class="brand-sub">装配视图</div></div>
+  </div>
+  <div class="side-label">项目</div>
+  <div class="project-row"><span data-icon="folder"></span><span id="projectName">--</span></div>
+  <div class="side-label">视图</div>
+  <nav class="side-nav">
+    <button data-view="assembly" class="active"><span data-icon="layers"></span>装配<span class="nav-count" id="navToolCount">--</span></button>
+    <button data-view="comms"><span data-icon="chat"></span>通讯</button>
+    <button data-view="office"><span data-icon="file"></span>Office</button>
+    <button data-view="memory"><span data-icon="brain"></span>记忆与经验</button>
+    <button data-view="trace"><span data-icon="activity"></span>调用轨迹</button>
+    <button data-view="tools"><span data-icon="grid"></span>工具目录</button>
+    <button data-view="workspace"><span data-icon="folder"></span>工作区</button>
+  </nav>
+  <div class="side-foot"><div>配置路径</div><div id="sideConfigPath">--</div></div>
+</aside>
+<main class="main">
+  <header class="topbar">
+    <div class="crumb"><strong id="topView">装配</strong><span class="sep">/</span><span class="project" id="topProject">--</span></div>
+    <div class="top-actions"><span class="badge" id="apiBadge">接口 --</span><span class="badge" id="configBadge">配置 --</span><button class="icon-btn" id="btnRefreshAll" title="刷新当前视图"><span data-icon="refresh"></span></button></div>
+  </header>
+  <div class="content">
+    <section class="view active" id="view-assembly">
+      <div class="page-head">
+        <h1>装配</h1>
+        <p>这一页只做配置写入、状态查看和轻量可视化。Skills、MCP 与 CLI 仍是实际调用入口。</p>
+      </div>
+      <div class="status-strip">
+        <div class="status-cell"><div class="status-label">登记工具</div><div class="status-value" id="statTools">--</div></div>
+        <div class="status-cell"><div class="status-label">接口</div><div class="status-value" id="statApi">--</div></div>
+        <div class="status-cell"><div class="status-label">配置</div><div class="status-value" id="statConfig">--</div></div>
+        <div class="status-cell"><div class="status-label">MCP 启用</div><div class="status-value" id="statMcp">--</div></div>
+        <div class="status-cell"><div class="status-label">Skill 启用</div><div class="status-value" id="statSkill">--</div></div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>模块开关</h2><div class="btn-row"><button class="btn-sm" id="btnAllOn">全部打开</button><button class="btn-sm" id="btnAllOff">全部关闭</button></div></div>
+        <div class="note" id="configNote">开关写入 Codex 配置；Codex 需重启后读取新配置。本页接口直接调用仓库内模块，不等于 Codex 当前已加载对应 MCP。</div>
+        <div class="table-wrap" style="margin-top:10px;">
+          <table class="table">
+            <thead><tr><th>模块</th><th>配置 ID</th><th>MCP</th><th>Skill</th><th>入口</th></tr></thead>
+            <tbody id="moduleRows"><tr><td colspan="5" class="loading">等待配置接口</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>本机快照</h2><span class="hint">web/facts.py 采集，10 分钟缓存</span></div>
+        <div class="facts-grid" id="factsList"><div class="loading" style="grid-column:1/-1;">等待接口</div></div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>使用边界</h2></div>
+        <div class="rule-list">
+          <div class="rule-row"><b>配置写入</b><span>每个开关都调用 /api/config/toggle，写入前用 tomllib 校验，写入后重新读取状态。</span></div>
+          <div class="rule-row"><b>接口与 MCP</b><span>本页接口直接调用仓库内模块；Codex 是否可用取决于 config.toml、Skills 目录以及是否重启 Codex。</span></div>
+          <div class="rule-row"><b>按需读取</b><span>通讯、Office、记忆、轨迹、工作区数据只在切到对应视图并点击刷新时读取。</span></div>
+          <div class="rule-row"><b>写文件</b><span>聊天汇总、经验提炼、Obsidian 导出等写操作由用户点击触发；页面加载不自动写业务文件。</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-comms">
+      <div class="page-head">
+        <h1>通讯</h1>
+        <p>数据来自 work_comms_overview、work_comms_notices、work_wechat_* 与 work_wecom_*。只有打开对应子视图时才读取。</p>
+      </div>
+      <div class="subnav">
+        <button data-comms-sub="overview" class="active">概览与通知</button>
+        <button data-comms-sub="sessions">会话与汇总</button>
+        <button data-comms-sub="files">收件文件</button>
+        <button data-comms-sub="media">媒体能力</button>
+      </div>
+      <div class="subview active" id="comms-overview">
+        <div class="section-head"><h2>通道状态</h2><button class="btn-sm" id="commsOverviewRefresh"><span data-icon="refresh"></span>刷新</button></div>
+        <div class="list-rows" id="channelRows"><div class="loading">等待读取</div></div>
+        <div class="section">
+          <div class="section-head"><h2>最近消息时间线</h2><span class="hint">来自 work_comms_notices</span></div>
+          <div class="inline-metrics" id="noticeMetrics">等待读取</div>
+          <div class="note" id="noticeHint"></div>
+          <div class="timeline" id="noticeList"><div class="loading">等待读取</div></div>
+        </div>
+      </div>
+      <div class="subview" id="comms-sessions">
+        <div class="section-head">
+          <h2>会话</h2>
+          <div class="btn-row"><button class="btn-sm active" data-comms-channel="wx">微信</button><button class="btn-sm" data-comms-channel="wecom">企业微信</button><button class="btn-sm" id="commsSessionsRefresh"><span data-icon="refresh"></span>刷新</button></div>
+        </div>
+        <div class="chat-layout">
+          <div class="session-pane">
+            <div class="session-tools"><input id="sessionSearch" placeholder="筛选会话名称" /></div>
+            <div class="session-list" id="sessionList"><div class="loading">等待读取</div></div>
+          </div>
+          <div class="message-pane">
+            <div class="message-head"><span id="messageHead">未选择会话</span><span id="messageCount">--</span></div>
+            <div class="message-list" id="messageList"><div class="empty">先选择一个会话</div></div>
+            <div class="digest-form">
+              <div class="form-field"><label>当前会话</label><input id="digestChat" placeholder="选择或填写会话名" /></div>
+              <div class="form-field"><label>条数</label><input id="digestLimit" type="number" min="1" max="300" value="80" /></div>
+              <div class="form-field"><label>格式</label><select id="digestFormat"><option value="md">md</option><option value="docx">docx</option></select></div>
+              <div class="form-field"><label>输出路径（可空）</label><input id="digestOutput" placeholder="留空时使用工具默认目录" /></div>
+              <div class="form-actions"><button class="btn primary" id="btnDigest">生成汇总</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="note" id="candidateBox" style="margin-top:8px;"></div>
+      </div>
+      <div class="subview" id="comms-files">
+        <div class="section-head"><h2>微信收件扫描</h2><span class="hint">work_wechat_files(mode=scan)</span></div>
+        <div class="file-toolbar">
+          <input id="fileKeyword" placeholder="文件名关键词，可空" />
+          <input id="fileLimit" type="number" min="1" max="200" value="40" />
+          <button class="btn" id="btnFiles"><span data-icon="refresh"></span>扫描</button>
+        </div>
+        <div class="stats-line" id="fileStats">等待读取</div>
+        <div class="table-wrap">
+          <table class="table files-table">
+            <colgroup><col style="width:24%"><col style="width:7%"><col style="width:10%"><col style="width:9%"><col style="width:9%"><col style="width:14%"><col style="width:27%"></colgroup>
+            <thead><tr><th>名称</th><th>类型</th><th>分类</th><th>大小</th><th>月份</th><th>修改时间</th><th>路径</th></tr></thead>
+            <tbody id="fileTableBody"><tr><td colspan="7" class="loading">等待读取</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="subview" id="comms-media">
+        <div class="section-head"><h2>媒体能力</h2><button class="btn-sm" id="commsMediaRefresh"><span data-icon="refresh"></span>刷新</button></div>
+        <div class="cap-grid" id="mediaList"><div class="loading" style="grid-column:1/-1;">等待读取</div></div>
+        <div class="note" style="margin-top:8px;">未指定会话时，work_wechat_media 返回本机能力信息，不会伪造图片预览。</div>
+      </div>
+    </section>
+
+    <section class="view" id="view-office">
+      <div class="page-head">
+        <h1>Office</h1>
+        <p>通用文件检视与版本差异。路径可粘贴绝对路径，也可从下方工作区文件列表选取；不预置示例文件。</p>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>检视文件</h2><span class="hint">work_office_inspect</span></div>
+        <div class="panel panel-pad">
+          <div class="form-grid four">
+            <div class="form-field"><label>文件路径</label><input id="inspectFile" placeholder="绝对路径，或从工作区选取" /></div>
+            <div class="form-field"><label>模式</label><select id="inspectMode"><option value="text">text</option><option value="outline">outline</option><option value="stats">stats</option><option value="issues">issues</option><option value="comments">comments</option><option value="forms">forms</option></select></div>
+            <div class="form-field"><label>最大行数</label><input id="inspectLines" type="number" min="1" max="1000" value="120" /></div>
+            <div class="form-field"><label>操作</label><button class="btn primary" id="btnInspect">运行检视</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>版本差异</h2><span class="hint">work_office_diff</span></div>
+        <div class="panel panel-pad">
+          <div class="form-grid four">
+            <div class="form-field"><label>文件 A</label><input id="diffA" placeholder="file_a" /></div>
+            <div class="form-field"><label>文件 B</label><input id="diffB" placeholder="file_b" /></div>
+            <div class="form-field"><label>工作表（可空）</label><input id="diffSheet" placeholder="sheet" /></div>
+            <div class="form-field"><label>主键列（可空）</label><input id="diffKey" placeholder="key_column" /></div>
+          </div>
+          <div class="form-grid two" style="margin-top:10px;">
+            <div class="form-field"><label>报告输出路径（可空）</label><input id="diffOutput" placeholder="output" /></div>
+            <div class="form-actions"><button class="btn primary" id="btnDiff">运行对比</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>从工作区取路径</h2><button class="btn-sm" id="btnOfficeWorkspaceRefresh"><span data-icon="refresh"></span>刷新</button></div>
+        <div class="workspace-grid">
+          <div class="dir-list" id="officeDirList"><div class="loading">等待读取</div></div>
+          <div class="panel"><div class="stats-line" id="officeFsStats">等待读取</div><div class="dir-list" id="officeFileList" style="max-height:360px;"><div class="loading">等待读取</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-memory">
+      <div class="page-head">
+        <h1>记忆与经验</h1>
+        <p>经验文档、工具轨迹和事实记忆来自本地接口。连线只按工具名、模块名和标题关键词计算，不推断额外关系。</p>
+      </div>
+      <div class="section-head"><h2>数据概览</h2><button class="btn-sm" id="btnMemoryRefresh"><span data-icon="refresh"></span>刷新</button></div>
+      <div class="inline-metrics" id="memMetrics">等待读取</div>
+      <svg class="memory-graph" id="memoryGraph" viewBox="0 0 900 340" role="img" aria-label="记忆关系图"></svg>
+      <div class="graph-caption" id="graphCaption">等待读取</div>
+      <div class="section">
+        <div class="section-head"><h2>经验文档</h2><span class="hint">点击标题读取整篇</span></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>标题</th><th>日期</th><th>模块</th><th>工具</th><th>步骤</th><th>摘要</th></tr></thead>
+            <tbody id="memoryDocsBody"><tr><td colspan="6" class="loading">等待读取</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>事实记忆</h2><span class="hint">Engram</span></div>
+        <div class="list-rows" id="memoryList"><div class="loading">等待读取</div></div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>写操作</h2></div>
+        <div class="panel panel-pad">
+          <div class="form-grid two">
+            <div class="form-field"><label>经验标题</label><input id="distillTitle" placeholder="从近期轨迹提炼时填写" /></div>
+            <div class="form-field"><label>Obsidian 库路径（可空）</label><input id="vaultPath" placeholder="vault_path" /></div>
+          </div>
+          <div class="form-actions"><button class="btn" id="btnDistill">从近期轨迹提炼经验</button><button class="btn" id="btnExportObsidian">导出 Obsidian</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-trace">
+      <div class="page-head">
+        <h1>调用轨迹</h1>
+        <p>显示 tool_trace.jsonl 中的真实记录。有效步骤、探索调用与失败调用分开统计，不把探索过程包装成成果。</p>
+      </div>
+      <div class="section-head"><h2>记录概览</h2><div class="btn-row"><select id="traceFilter" style="width:150px;"><option value="all">全部</option><option value="effective">有效步骤</option><option value="discovery">探索调用</option><option value="failed">失败调用</option></select><button class="btn-sm" id="btnTraceRefresh"><span data-icon="refresh"></span>刷新</button></div></div>
+      <div class="inline-metrics" id="traceMetrics">等待读取</div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>时间</th><th>类别</th><th>模块</th><th>工具</th><th>结果</th><th>耗时</th><th>参数</th></tr></thead>
+          <tbody id="traceTableBody"><tr><td colspan="7" class="loading">等待读取</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-tools">
+      <div class="page-head">
+        <h1>工具目录</h1>
+        <p>清单来自构建时写入的 web/tools.json。此处只展示，不替代 MCP、Skills 或 CLI 调用。</p>
+      </div>
+      <div class="section-head"><h2>已登记工具</h2><span class="hint" id="catalogStats">--</span></div>
+      <div class="file-toolbar"><input id="toolSearch" placeholder="按名称或描述筛选" /><select id="toolModule"><option value="">全部模块</option></select><button class="btn-sm" id="btnToolReset">重置</button></div>
+      <div class="catalog-list" id="catalogList"><div class="loading">等待静态数据</div></div>
+      <div class="section">
+        <div class="section-head"><h2>自定义节点</h2><span class="hint">来自 web/custom_nodes.json</span></div>
+        <div id="customGroups"><div class="loading">等待静态数据</div></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-workspace">
+      <div class="page-head">
+        <h1>工作区</h1>
+        <p>目录与文件来自 /api/tree 和 /api/fs。只读取 workspace 范围内的文件。</p>
+      </div>
+      <div class="section-head"><h2>目录与文件</h2><button class="btn-sm" id="btnWsRefresh"><span data-icon="refresh"></span>刷新</button></div>
+      <div class="workspace-grid">
+        <div class="dir-list" id="wsDirList"><div class="loading">等待读取</div></div>
+        <div class="panel"><div class="stats-line" id="wsFsStats">等待读取</div><div class="dir-list" id="wsFileList" style="max-height:500px;"><div class="loading">等待读取</div></div></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="prompt-bar">
+    <div class="prompt-scope"><span data-icon="folder"></span><span id="promptProject">--</span></div>
+    <input class="prompt-input" id="promptInput" placeholder="输入需求，查看 work.py ask 返回的计划" autocomplete="off" />
+    <div class="prompt-bottom">
+      <div class="prompt-status"><span>接口 <b id="promptApi">--</b></span><span>配置 <b id="promptConfig">--</b></span><span id="promptHost">--</span></div>
+      <button class="send-btn" id="btnPromptSend" title="发送"><span data-icon="arrow-up"></span></button>
+    </div>
+  </div>
+</main>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-head"><span id="drawerTitle">结果</span><button class="btn-sm" id="btnDrawerClose"><span data-icon="close"></span>关闭</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+window.__INITIAL_TOOLS__ = __TOOLS__;
+window.__INITIAL_META__ = __TOOLS_META__;
+window.__INITIAL_FACTS__ = __FACTS__;
+window.__INITIAL_CUSTOM__ = __CUSTOM__;
+</script>
+
+<script>
+const ICONS = {
+  layers: '<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/>',
+  chat: '<path d="M20 15a3 3 0 0 1-3 3H8l-4 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9Z"/><path d="M8 9h8M8 13h5"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 5 3 3 0 0 0 5 2V4Z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 5 3 3 0 0 1-5 2V4Z"/><path d="M12 4v16"/>',
+  activity: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1-2.1 2.1-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21h-3v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1-2.1-2.1.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3v-3h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1 2.1-2.1.1.1a1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5V3h3v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1 2.1 2.1-.1.1a1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1H21v3h-.1a1.6 1.6 0 0 0-1.5 1Z"/>',
+  mark: '<path d="M7 12h10M12 7v10"/><rect x="4" y="4" width="16" height="16" rx="3"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 5v6h-6"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  arrowUp: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  'arrow-up': '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'
+};
+function icon(name) {
+  return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || ICONS.mark) + '</svg>';
+}
+function hydrateIcons(root) {
+  (root || document).querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+}
+const $ = id => document.getElementById(id);
+const State = {
+  view: 'assembly',
+  meta: Array.isArray(window.__INITIAL_META__) ? window.__INITIAL_META__ : [],
+  tools: Array.isArray(window.__INITIAL_TOOLS__) ? window.__INITIAL_TOOLS__ : [],
+  facts: window.__INITIAL_FACTS__ || {},
+  custom: window.__INITIAL_CUSTOM__ || { groups: [] },
+  status: null,
+  config: null,
+  commsSub: 'overview',
+  commsChannel: 'wx',
+  sessions: [],
+  currentChat: '',
+  workspaceTree: null,
+  workspaceFiles: null,
+  workspaceDir: '',
+  trace: null,
+  loaded: {}
+};
+const VIEW_LABELS = {
+  assembly: '装配', comms: '通讯', office: 'Office', memory: '记忆与经验',
+  trace: '调用轨迹', tools: '工具目录', workspace: '工作区'
+};
+function esc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function clip(value, max) {
+  const s = String(value == null ? '' : value);
+  return s.length > max ? s.slice(0, max) + '...' : s;
+}
+function pretty(value) {
+  try { return JSON.stringify(value, null, 2); } catch (err) { return String(value); }
+}
+function fmtBytes(n) {
+  const b = Number(n || 0);
+  if (b >= 1073741824) return (b / 1073741824).toFixed(2) + ' GB';
+  if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
+  if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
+  return b + ' B';
+}
+function setText(id, value) { const el = $(id); if (el) el.textContent = String(value == null ? '' : value); }
+function setHTML(id, html) { const el = $(id); if (el) el.innerHTML = html; }
+function showLoading(el, msg) { if (el) el.innerHTML = '<div class="loading">' + esc(msg || '正在读取') + '</div>'; }
+function showEmpty(el, msg) { if (el) el.innerHTML = '<div class="empty">' + esc(msg || '暂无数据') + '</div>'; }
+function showError(el, err) { if (el) el.innerHTML = '<div class="error">' + esc(err && err.message ? err.message : err) + '</div>'; }
+function setBadge(id, text, isError) {
+  const el = $(id); if (!el) return;
+  el.textContent = text;
+  el.classList.toggle('error', !!isError);
+}
+let toastTimer = null;
+function showToast(msg, isError) {
+  const el = $('toast'); if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('error', !!isError);
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+function showDrawer(title, data, isError) {
+  setText('drawerTitle', title || '结果');
+  $('drawerBody').textContent = typeof data === 'string' ? data : pretty(data);
+  $('drawer').classList.add('show');
+  if (isError) showToast('操作返回失败，详情见右侧结果', true);
+}
+function closeDrawer() { $('drawer').classList.remove('show'); }
+async function apiFetch(url, options) {
+  const opts = Object.assign({}, options || {});
+  if (opts.body && !opts.headers) opts.headers = { 'Content-Type': 'application/json' };
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+  let payload;
+  try { payload = await res.json(); } catch (err) { throw new Error('响应不是 JSON'); }
+  if (payload.ok === false && payload.error) throw new Error(payload.error);
+  return payload.data !== undefined ? payload.data : payload;
+}
+function postJson(url, body) {
+  return apiFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+function toolRun(tool, args) { return postJson('/api/run', { tool: tool, args: args || {} }); }
+function baseTool(s) { return String(s || '').split(':')[0].trim(); }
+function listText(v) { return Array.isArray(v) ? v.map(x => String(x == null ? '' : x)).join(', ') : String(v == null ? '' : v); }
+
+function hydrateStatic() {
+  hydrateIcons(document);
+  const project = State.facts.project || '--';
+  setText('projectName', project);
+  setText('topProject', project);
+  setText('promptProject', project);
+  setText('promptHost', location.host || '静态文件');
+  setText('statTools', State.meta.length);
+  setText('navToolCount', State.meta.length);
+  renderCatalog();
+  renderCustom();
+}
+function renderFacts(facts, status, stale) {
+  const f = facts || {};
+  const s = status || {};
+  const rows = [
+    ['来源', stale ? '构建时快照（可能过期）' : '接口读取，10 分钟缓存'],
+    ['项目', s.project || f.project || '--'],
+    ['根目录', s.root || '--'],
+    ['解释器', s.python || '--'],
+    ['配置路径', s.config_path || '--'],
+    ['快照时间', f.at || '--'],
+    ['微信版本', f.wechat_version || '--'],
+    ['微信账号目录', f.wechat_account || '--'],
+    ['收件文件', f.inbox_files == null ? '--' : f.inbox_files],
+    ['收件体积', f.inbox_gb == null ? '--' : f.inbox_gb + ' GB'],
+    ['只读副本', f.cache_dbs == null ? '--' : f.cache_dbs],
+    ['OfficeCLI', f.officecli || '--']
+  ];
+  setHTML('factsList', rows.map(r => '<div class="fact-row"><div class="fact-label">' + esc(r[0]) + '</div><div class="fact-value">' + esc(r[1]) + '</div></div>').join(''));
+}
+async function loadStatus(force) {
+  if (!force && State.status) return;
+  try {
+    const d = await apiFetch('/api/status');
+    State.status = d;
+    setBadge('apiBadge', '接口在线', false);
+    setText('statApi', '接口在线');
+    setText('promptApi', '在线');
+    setText('statTools', d.tools == null ? State.meta.length : d.tools);
+    setText('navToolCount', d.tools == null ? State.meta.length : d.tools);
+    setText('projectName', d.project || State.facts.project || '--');
+    setText('topProject', d.project || State.facts.project || '--');
+    setText('promptProject', d.project || State.facts.project || '--');
+    setText('sideConfigPath', d.config_path || '--');
+    renderFacts(d.facts || {}, d, false);
+  } catch (err) {
+    State.status = null;
+    setBadge('apiBadge', '静态预览', true);
+    setText('statApi', '接口不可用');
+    setText('promptApi', '不可用');
+    renderFacts(State.facts, null, true);
+  }
+}
+function configCounts(d) {
+  const items = Object.values((d && d.mcps) || {});
+  const mcp = items.filter(x => x.mcp_registered);
+  const skill = items.filter(x => x.skill_id);
+  return {
+    items: items,
+    mcpEnabled: mcp.filter(x => x.mcp_enabled).length,
+    mcpTotal: mcp.length,
+    skillEnabled: skill.filter(x => x.skill_enabled).length,
+    skillTotal: skill.length
+  };
+}
+function renderModuleRows(d) {
+  const el = $('moduleRows');
+  if (!d || d.ok === false) return showError(el, (d && d.error) || '配置接口不可用');
+  const c = configCounts(d);
+  if (!c.items.length) return showEmpty(el, '配置中没有受管模块');
+  el.innerHTML = c.items.map(item => {
+    const mcpText = item.mcp_registered ? (item.mcp_enabled ? '已启用' : '已关闭') : '未登记';
+    const mcpSwitch = '<label class="switch"><input type="checkbox" data-mcp="' + esc(item.id) + '"' + (item.mcp_enabled ? ' checked' : '') + (item.mcp_registered ? '' : ' disabled') + '><span class="slider"></span></label><span class="switch-text">' + esc(mcpText) + '</span>';
+    let skillCell = '<span class="note">不适用</span>';
+    if (item.skill_id) {
+      const skillText = item.skill_registered ? (item.skill_enabled ? '已启用' : '已关闭') : '未安装';
+      skillCell = '<label class="switch"><input type="checkbox" data-skill="' + esc(item.skill_id) + '"' + (item.skill_enabled ? ' checked' : '') + '><span class="slider"></span></label><span class="switch-text">' + esc(skillText) + '</span>';
+    }
+    return '<tr><td><b>' + esc(item.name) + '</b><div class="note">' + esc(item.desc) + '</div></td><td class="mono">' + esc(item.id) + '</td><td>' + mcpSwitch + '</td><td>' + skillCell + '</td><td class="mono">' + esc(item.entry) + '</td></tr>';
+  }).join('');
+}
+async function loadConfig(force) {
+  if (!force && State.config) return;
+  try {
+    const d = await apiFetch('/api/config/status');
+    State.config = d;
+    const c = configCounts(d);
+    setBadge('configBadge', d.ok === false ? '配置异常' : '配置可解析', d.ok === false);
+    setText('statConfig', d.ok === false ? '解析失败' : '可解析');
+    setText('promptConfig', d.ok === false ? '解析失败' : '可解析');
+    setText('statMcp', c.mcpEnabled + ' / ' + c.mcpTotal);
+    setText('statSkill', c.skillEnabled + ' / ' + c.skillTotal);
+    setText('sideConfigPath', d.config_path || '--');
+    setText('configNote', '配置文件：' + (d.config_path || '--') + '。开关写入后重新读取状态；Codex 需重启后读取新配置。本页接口直接调用仓库内模块，不等于 Codex 当前已加载对应 MCP。');
+    renderModuleRows(d);
+  } catch (err) {
+    State.config = null;
+    setBadge('configBadge', '接口不可用', true);
+    setText('statConfig', '接口不可用');
+    setText('promptConfig', '接口不可用');
+    setText('statMcp', '--');
+    setText('statSkill', '--');
+    showError($('moduleRows'), '需要启动 web/serve.py 后才能读取或修改配置');
+  }
+}
+async function loadAssembly(force) {
+  await Promise.allSettled([loadStatus(force), loadConfig(force)]);
+}
+async function toggleOne(target, id, enabled) {
+  try {
+    const res = await postJson('/api/config/toggle', { target: target, id: id, enabled: enabled });
+    if (res.ok === false) throw new Error(res.error || '写入失败');
+    await loadConfig(true);
+    showToast('已写入 ' + id);
+  } catch (err) {
+    await loadConfig(true);
+    showToast(err.message || String(err), true);
+  }
+}
+async function bulkToggle(enabled) {
+  const d = State.config;
+  if (!d || d.ok === false) return showToast('配置接口不可用或配置无法解析', true);
+  const ops = [];
+  Object.values(d.mcps || {}).forEach(item => {
+    if (item.mcp_registered) ops.push({ target: 'mcp', id: item.id, enabled: enabled });
+    if (item.skill_id) ops.push({ target: 'skill', id: item.skill_id, enabled: enabled });
+  });
+  if (!ops.length) return showToast('没有可写入的配置项', true);
+  const buttons = [$('btnAllOn'), $('btnAllOff')];
+  buttons.forEach(b => { if (b) b.disabled = true; });
+  let ok = 0, fail = 0;
+  for (const op of ops) {
+    try {
+      const res = await postJson('/api/config/toggle', op);
+      if (res.ok === false) throw new Error(res.error || '写入失败');
+      ok += 1;
+    } catch (err) { fail += 1; }
+  }
+  await loadConfig(true);
+  buttons.forEach(b => { if (b) b.disabled = false; });
+  const c = configCounts(State.config);
+  showToast('批量写入完成：成功 ' + ok + '，失败 ' + fail + '；当前 MCP ' + c.mcpEnabled + '/' + c.mcpTotal + '，Skill ' + c.skillEnabled + '/' + c.skillTotal, fail > 0);
+}
+
+function activateCommSub(name, force) {
+  State.commsSub = name || 'overview';
+  document.querySelectorAll('[data-comms-sub]').forEach(b => b.classList.toggle('active', b.dataset.commsSub === State.commsSub));
+  document.querySelectorAll('#view-comms .subview').forEach(v => v.classList.toggle('active', v.id === 'comms-' + State.commsSub));
+  const map = {
+    overview: loadCommsOverview, sessions: loadCommsSessions, files: loadCommsFiles, media: loadCommsMedia
+  };
+  if (map[State.commsSub]) map[State.commsSub](!!force);
+}
+async function loadCommsOverview(force) {
+  if (!force && State.loaded.commsOverview) return;
+  showLoading($('channelRows'), '正在读取通道状态');
+  showLoading($('noticeList'), '正在读取最近消息');
+  setText('noticeMetrics', '等待读取');
+  setText('noticeHint', '');
+  const [ov, nt] = await Promise.allSettled([
+    apiFetch('/api/comms/overview?limit=6'),
+    apiFetch('/api/comms/notices?days=3&limit=30&only_notices=0&order=time')
+  ]);
+  if (ov.status === 'fulfilled') renderChannels(ov.value); else showError($('channelRows'), ov.reason);
+  if (nt.status === 'fulfilled') renderNotices(nt.value); else { showError($('noticeList'), nt.reason); setText('noticeMetrics', '读取失败'); }
+  State.loaded.commsOverview = ov.status === 'fulfilled' && nt.status === 'fulfilled';
+}
+function renderChannels(d) {
+  const rows = (d && d.channels) || [];
+  if (!rows.length) return showEmpty($('channelRows'), '没有通道数据');
+  $('channelRows').innerHTML = rows.map(c => {
+    const sessions = Array.isArray(c.sessions) ? c.sessions.length : (c.sessions || 0);
+    const metrics = c.metrics ? JSON.stringify(c.metrics) : '';
+    const msg = [c.status, c.hint, c.error, metrics ? 'metrics: ' + metrics : ''].filter(Boolean).join(' / ');
+    return '<div class="list-row"><div class="name">' + esc(c.name || c.id) + '</div><div class="meta">' + esc(msg || '无附加信息') + '</div><div class="state">ready=' + esc(c.ready) + ' · sessions=' + esc(sessions) + '</div></div>';
+  }).join('');
+}
+function renderNotices(d) {
+  const items = (d && d.items) || [];
+  const w = d.window || {};
+  $('noticeMetrics').innerHTML = '窗口 <b>' + esc(w.since || '--') + '</b> 到 <b>' + esc(w.until || '--') + '</b> · 返回 <b>' + esc(d.count == null ? '--' : d.count) + '</b> / 匹配 <b>' + esc(d.total_matched == null ? '--' : d.total_matched) + '</b> · 通知候选 <b>' + esc(d.notice_count == null ? '--' : d.notice_count) + '</b> · 截止线索 <b>' + esc(d.due_count == null ? '--' : d.due_count) + '</b> · 截断 <b>' + esc(d.truncated) + '</b>';
+  setText('noticeHint', d.hint || 'notice 是召回标记，不代表事实判定。');
+  if (!items.length) return showEmpty($('noticeList'), '当前窗口没有返回消息');
+  $('noticeList').innerHTML = items.map(it => {
+    const flags = [
+      'notice=' + (it.notice === true ? 'true' : 'false'),
+      it.due ? 'due=' + it.due : '',
+      it.time_ref ? 'time_ref=' + it.time_ref : '',
+      it.signals ? 'signals=' + JSON.stringify(it.signals) : ''
+    ].filter(Boolean).join(' / ');
+    return '<div class="timeline-row"><div class="timeline-time">' + esc(it.time || '') + '</div><div class="timeline-main"><div class="timeline-title">' + esc(it.channel || '') + ' / ' + esc(it.chat || '') + ' / ' + esc(it.sender || '') + '</div><div class="timeline-text">' + esc(it.text || '') + '</div><div class="timeline-flags">' + esc(flags) + '</div></div></div>';
+  }).join('');
+}
+function setCommsChannel(ch) {
+  State.commsChannel = ch === 'wecom' ? 'wecom' : 'wx';
+  document.querySelectorAll('[data-comms-channel]').forEach(b => b.classList.toggle('active', b.dataset.commsChannel === State.commsChannel));
+  State.currentChat = '';
+  setText('messageHead', '未选择会话');
+  setText('messageCount', '--');
+  showEmpty($('messageList'), '先选择一个会话');
+  setText('candidateBox', '');
+  setText('digestChat', '');
+  loadCommsSessions(true);
+}
+async function loadCommsSessions(force) {
+  if (!force && State.loaded.sessions && State.loaded.sessionsChannel === State.commsChannel) return;
+  showLoading($('sessionList'), '正在读取会话');
+  try {
+    const path = State.commsChannel === 'wx' ? '/api/wx/sessions?limit=30' : '/api/wecom/sessions?limit=30';
+    const d = await apiFetch(path);
+    State.sessions = d.sessions || [];
+    State.loaded.sessions = true;
+    State.loaded.sessionsChannel = State.commsChannel;
+    renderSessions();
+  } catch (err) { showError($('sessionList'), err); }
+}
+function renderSessions() {
+  const q = ($('sessionSearch').value || '').trim().toLowerCase();
+  const rows = State.sessions.filter(s => String(s.name || s.username || s.id || '').toLowerCase().includes(q));
+  if (!rows.length) return showEmpty($('sessionList'), q ? '没有匹配的会话' : '没有会话数据');
+  $('sessionList').innerHTML = rows.map(s => {
+    const chat = s.name || s.username || s.id || '';
+    const preview = s.summary || s.kind || (s.is_group ? '群聊' : '单聊') || '';
+    const time = s.last_time || s.time || '';
+    const unread = s.unread || 0;
+    return '<div class="session-row' + (State.currentChat === chat ? ' active' : '') + '" data-chat="' + esc(chat) + '"><div class="session-name">' + esc(chat) + '</div><div class="session-meta"><span>' + esc(time) + '</span><span>未读 ' + esc(unread) + '</span></div><div class="session-preview">' + esc(preview) + '</div></div>';
+  }).join('');
+}
+async function selectChat(chat) {
+  State.currentChat = chat;
+  setText('digestChat', chat);
+  renderSessions();
+  showLoading($('messageList'), '正在读取消息');
+  try {
+    const path = State.commsChannel === 'wx' ? '/api/wx/messages' : '/api/wecom/messages';
+    const d = await apiFetch(path + '?chat=' + encodeURIComponent(chat) + '&limit=60');
+    renderMessages(d);
+  } catch (err) { showError($('messageList'), err); }
+}
+function renderMessages(d) {
+  const msgs = (d && d.messages) || [];
+  setText('messageHead', (d && d.chat) || State.currentChat || '未选择会话');
+  setText('messageCount', (d && d.count != null) ? d.count : msgs.length);
+  const candidates = (d && d.candidates) || [];
+  const bits = [];
+  if (candidates.length) bits.push('候选会话：' + JSON.stringify(candidates));
+  if (d && d.wal_pending) bits.push('WAL 增量待处理');
+  setText('candidateBox', bits.join(' / '));
+  if (!msgs.length) return showEmpty($('messageList'), '没有返回消息');
+  $('messageList').innerHTML = msgs.map(m => {
+    const type = m.type_name || m.type || '';
+    const text = m.text || m.raw || '';
+    const ref = m.media_ref ? ' / media_ref=' + m.media_ref : '';
+    return '<div class="message-row"><div class="message-meta"><span>' + esc(m.time || '') + '</span><span>' + esc(m.sender || '') + '</span><span>' + esc(type) + '</span></div><div class="message-text">' + esc(text) + esc(ref) + '</div></div>';
+  }).join('');
+}
+async function generateDigest() {
+  const chat = ($('digestChat').value || '').trim();
+  if (!chat) return showToast('请先选择或填写会话名', true);
+  const args = {
+    chat: chat,
+    limit: Math.max(1, Math.min(300, Number($('digestLimit').value) || 80)),
+    format: $('digestFormat').value,
+    output: ($('digestOutput').value || '').trim()
+  };
+  if (!window.confirm('work_wechat_digest 会写入输出文件，继续吗？')) return;
+  showDrawer('聊天汇总', '正在调用 work_wechat_digest');
+  try {
+    const res = await toolRun('work_wechat_digest', args);
+    showDrawer('聊天汇总结果', res, res.ok === false);
+  } catch (err) { showDrawer('聊天汇总失败', String(err), true); }
+}
+async function loadCommsFiles(force) {
+  if (!force && State.loaded.files) return;
+  showLoading($('fileTableBody'), '正在扫描收件文件');
+  const keyword = ($('fileKeyword').value || '').trim();
+  const limit = Math.max(1, Math.min(200, Number($('fileLimit').value) || 40));
+  try {
+    const d = await apiFetch('/api/wx/files?limit=' + limit + '&keyword=' + encodeURIComponent(keyword));
+    State.loaded.files = true;
+    const s = d.stats || {};
+    setText('fileStats', 'mode=' + (d.mode || '') + ' · returned=' + (d.returned == null ? '--' : d.returned) + ' · scan_count=' + (s.count == null ? '--' : s.count) + ' · total_mb=' + (s.total_mb == null ? '--' : s.total_mb) + ' · by_kind=' + JSON.stringify(s.by_kind || {}) + ' · by_ext=' + JSON.stringify(s.by_ext || {}));
+    const files = d.files || [];
+    if (!files.length) return setHTML('fileTableBody', '<tr><td colspan="7" class="empty">没有返回文件</td></tr>');
+    $('fileTableBody').innerHTML = files.map(f => '<tr><td class="clamp" title="' + esc(f.path) + '">' + esc(f.name) + '</td><td class="nowrap">' + esc(f.ext) + '</td><td class="nowrap">' + esc(f.kind) + '</td><td class="nowrap">' + esc(fmtBytes(f.size)) + '</td><td class="nowrap">' + esc(f.month) + '</td><td class="nowrap">' + esc(f.mtime_text) + '</td><td class="mono path-cell" title="' + esc(f.path) + '">' + esc(f.path) + '</td></tr>').join('');
+  } catch (err) {
+    showError($('fileStats'), err);
+    setHTML('fileTableBody', '<tr><td colspan="7" class="error">读取失败</td></tr>');
+  }
+}
+async function loadCommsMedia(force) {
+  if (!force && State.loaded.media) return;
+  showLoading($('mediaList'), '正在读取媒体能力');
+  try {
+    const d = await apiFetch('/api/wx/media?limit=1&prefer=thumb');
+    State.loaded.media = true;
+    const sample = d.sample || {};
+    const rows = [
+      ['模式', d.mode], ['账号', d.account], ['wxid', d.wxid], ['uin', d.uin],
+      ['AES 密钥就绪', d.aes_key_ready], ['ffmpeg', d.ffmpeg], ['dat 总数', d.dat_total],
+      ['notes', listText(d.notes)], ['sample.path', sample.path], ['sample.kind', sample.kind],
+      ['sample.payload_bytes', sample.payload_bytes]
+    ];
+    $('mediaList').innerHTML = rows.map(r => '<div class="cap-row"><div class="cap-label">' + esc(r[0]) + '</div><div class="cap-value">' + esc(r[1] == null ? '--' : r[1]) + '</div></div>').join('');
+  } catch (err) { showError($('mediaList'), err); }
+}
+
+async function loadWorkspace(force) {
+  if (force || !State.workspaceTree) {
+    try {
+      State.workspaceTree = await apiFetch('/api/tree');
+      renderDirLists();
+    } catch (err) {
+      showError($('officeDirList'), err);
+      showError($('wsDirList'), err);
+      return;
+    }
+  }
+  await loadWorkspaceFiles(force);
+}
+function renderDirLists() {
+  const dirs = (State.workspaceTree && State.workspaceTree.dirs) || [];
+  const html = dirs.length ? dirs.map(d => {
+    const value = d.name === '.' ? '' : d.name;
+    const active = value === State.workspaceDir;
+    return '<div class="dir-row' + (active ? ' active' : '') + '" data-dir="' + esc(value) + '"><span>' + esc(d.name === '.' ? '根目录' : d.name) + '</span><span>' + esc(d.count == null ? '--' : d.count) + ' / ' + esc(fmtBytes(d.size)) + '</span></div>';
+  }).join('') : '<div class="empty">没有目录数据</div>';
+  setHTML('officeDirList', html);
+  setHTML('wsDirList', html);
+}
+async function loadWorkspaceFiles(force) {
+  try {
+    const d = await apiFetch('/api/fs?dir=' + encodeURIComponent(State.workspaceDir) + '&limit=80');
+    State.workspaceFiles = d;
+    State.loaded.workspace = true;
+    renderFileLists(d);
+  } catch (err) {
+    showError($('officeFsStats'), err);
+    showError($('wsFsStats'), err);
+    setHTML('officeFileList', '<div class="error">读取失败</div>');
+    setHTML('wsFileList', '<div class="error">读取失败</div>');
+  }
+}
+function renderFileLists(d) {
+  const entries = (d && d.entries) || [];
+  const stats = '目录 ' + (d.dir || '.') + ' · 返回 ' + entries.length + ' / ' + (d.total == null ? '--' : d.total) + ' · 合计 ' + fmtBytes(d.size || 0);
+  setText('officeFsStats', stats);
+  setText('wsFsStats', stats);
+  const html = entries.length ? entries.map(e => '<div class="dir-row"><span title="' + esc(e.path) + '">' + esc(e.name) + '</span><span>' + esc(fmtBytes(e.size)) + ' · ' + esc(e.mtime) + ' <button class="btn-sm" data-copy="inspect" data-path="' + esc(e.path) + '">检视</button> <button class="btn-sm" data-copy="diffA" data-path="' + esc(e.path) + '">A</button> <button class="btn-sm" data-copy="diffB" data-path="' + esc(e.path) + '">B</button></span></div>').join('') : '<div class="empty">该目录没有文件</div>';
+  setHTML('officeFileList', html);
+  setHTML('wsFileList', html);
+}
+function setWorkspaceDir(dir) {
+  State.workspaceDir = dir || '';
+  renderDirLists();
+  loadWorkspaceFiles(true);
+}
+function copyWorkspacePath(target, p) {
+  const map = { inspect: 'inspectFile', diffA: 'diffA', diffB: 'diffB' };
+  const el = $(map[target]); if (!el) return;
+  el.value = p;
+  showToast('已填入 ' + map[target]);
+}
+async function runInspect() {
+  const file = ($('inspectFile').value || '').trim();
+  if (!file) return showToast('请填写文件路径', true);
+  const args = { file: file, mode: $('inspectMode').value, max_lines: Math.max(1, Math.min(1000, Number($('inspectLines').value) || 120)) };
+  showDrawer('Office 检视', '正在调用 work_office_inspect');
+  try {
+    const res = await toolRun('work_office_inspect', args);
+    showDrawer('Office 检视结果', res, res.ok === false);
+  } catch (err) { showDrawer('Office 检视失败', String(err), true); }
+}
+async function runDiff() {
+  const a = ($('diffA').value || '').trim();
+  const b = ($('diffB').value || '').trim();
+  if (!a || !b) return showToast('请填写文件 A 与文件 B', true);
+  const args = {
+    file_a: a, file_b: b,
+    sheet: ($('diffSheet').value || '').trim(),
+    key_column: ($('diffKey').value || '').trim(),
+    output: ($('diffOutput').value || '').trim()
+  };
+  showDrawer('Office 差异', '正在调用 work_office_diff');
+  try {
+    const res = await toolRun('work_office_diff', args);
+    showDrawer('Office 差异结果', res, res.ok === false);
+  } catch (err) { showDrawer('Office 差异失败', String(err), true); }
+}
+
+async function loadMemory(force) {
+  if (!force && State.loaded.memory) return;
+  showLoading($('memoryDocsBody'), '正在读取经验文档');
+  showLoading($('memoryList'), '正在读取事实记忆');
+  try {
+    const d = await apiFetch('/api/memory/data');
+    State.loaded.memory = true;
+    const docs = d.docs || [];
+    const mems = d.engram_memories || [];
+    const tr = d.trace || {};
+    const led = d.ledger_summary || {};
+    $('memMetrics').innerHTML = '经验文档 <b>' + esc(d.docs_count == null ? docs.length : d.docs_count) + '</b> · 轨迹原始 <b>' + esc(tr.raw_count == null ? '--' : tr.raw_count) + '</b> · 有效 <b>' + esc(tr.effective_count == null ? '--' : tr.effective_count) + '</b> · 探索过滤 <b>' + esc(tr.discovery_eliminated_count == null ? '--' : tr.discovery_eliminated_count) + '</b> · 失败 <b>' + esc(tr.failed_count == null ? '--' : tr.failed_count) + '</b> · 事实记忆 <b>' + esc(mems.length) + '</b> · 台账文件 <b>' + esc(led.total_files == null ? '--' : led.total_files) + '</b>';
+    renderMemoryGraph(d);
+    renderMemoryDocs(docs);
+    renderMemories(mems);
+  } catch (err) {
+    showError($('memMetrics'), err);
+    showError($('graphCaption'), err);
+    showError($('memoryDocsBody'), err);
+    showError($('memoryList'), err);
+  }
+}
+function nodeLabel(v, fallback) {
+  const s = String(v == null ? '' : v);
+  return s || fallback || '--';
+}
+function renderMemoryGraph(d) {
+  const svg = $('memoryGraph');
+  const tr = d.trace || {};
+  const steps = (tr.effective_steps || []).slice(0, 5);
+  const toolNodes = (steps.length ? steps : (tr.tools || []).slice(0, 5).map(t => ({ display_tool: t, tool: t, module: '' }))).map((s, i) => ({
+    x: 90, y: 52 + i * 56, label: s.display_tool || s.tool || s, module: s.module || '', tool: s.tool || s.display_tool || s
+  }));
+  const docNodes = (d.docs || []).slice(0, 5).map((doc, i) => ({ x: 445, y: 52 + i * 56, label: doc.title || doc.id || '经验', doc: doc }));
+  const memNodes = (d.engram_memories || []).slice(0, 5).map((m, i) => ({ x: 730, y: 52 + i * 56, label: m.title || m.topic_key || ('#' + (m.id == null ? '' : m.id)), mem: m }));
+  if (!toolNodes.length && !docNodes.length && !memNodes.length) {
+    svg.innerHTML = '<text x="450" y="170" text-anchor="middle" font-size="12" fill="#686870">当前接口没有可可视化的数据</text>';
+    setText('graphCaption', '没有经验文档、轨迹工具或事实记忆节点。');
+    return;
+  }
+  const lines = [];
+  toolNodes.forEach((t, ti) => {
+    docNodes.forEach((doc, di) => {
+      const tools = Array.isArray(doc.doc.tools) ? doc.doc.tools : [];
+      const modules = Array.isArray(doc.doc.modules) ? doc.doc.modules : [];
+      const match = tools.some(x => String(x) === String(t.tool) || String(x) === String(t.display_tool || '') || baseTool(x) === baseTool(t.tool)) || (t.module && modules.includes(t.module));
+      if (match) lines.push('<line x1="' + (t.x + 8) + '" y1="' + t.y + '" x2="' + (doc.x - 8) + '" y2="' + doc.y + '" stroke="#b8b8bd" stroke-width="1"/>');
+    });
+  });
+  docNodes.forEach((doc, di) => {
+    memNodes.forEach((m, mi) => {
+      const hay = String((m.mem && (m.mem.title || m.mem.topic_key)) || '');
+      const title = String(doc.doc.title || doc.doc.id || '');
+      if (title && hay.includes(title)) lines.push('<line x1="' + (doc.x + 8) + '" y1="' + doc.y + '" x2="' + (m.x - 8) + '" y2="' + m.y + '" stroke="#b8b8bd" stroke-width="1"/>');
+    });
+  });
+  const headers = '<text x="90" y="28" font-size="12" font-weight="600" fill="#161619">轨迹工具</text><text x="445" y="28" font-size="12" font-weight="600" fill="#161619">经验文档</text><text x="730" y="28" font-size="12" font-weight="600" fill="#161619">事实记忆</text>';
+  const circles = [];
+  [toolNodes, docNodes, memNodes].forEach(group => group.forEach(n => {
+    const isMemory = n.x > 700;
+    const labelMax = isMemory ? 10 : 18;
+    const textX = isMemory ? 880 : n.x + 12;
+    const textAnchor = isMemory ? ' text-anchor="end"' : '';
+    circles.push('<circle cx="' + n.x + '" cy="' + n.y + '" r="5" fill="#ffffff" stroke="#111113" stroke-width="1.4"/><text x="' + textX + '" y="' + (n.y + 4) + '"' + textAnchor + ' font-size="12" fill="#161619">' + esc(clip(n.label, labelMax)) + '</text>');
+  }));
+  svg.innerHTML = headers + lines.join('') + circles.join('');
+  setText('graphCaption', '节点数：轨迹 ' + toolNodes.length + ' / 经验 ' + docNodes.length + ' / 记忆 ' + memNodes.length + '；可计算关联 ' + lines.length + ' 条。连线依据：工具名、模块名或标题关键词。');
+}
+function renderMemoryDocs(docs) {
+  if (!docs.length) return setHTML('memoryDocsBody', '<tr><td colspan="6" class="empty">没有经验文档</td></tr>');
+  $('memoryDocsBody').innerHTML = docs.map(doc => '<tr><td><button class="btn-sm" data-doc="' + esc(doc.id) + '">' + esc(clip(doc.title || doc.id, 30)) + '</button></td><td>' + esc(doc.date) + '</td><td>' + esc(listText(doc.modules)) + '</td><td class="mono">' + esc(listText(doc.tools)) + '</td><td>' + esc(doc.steps_count == null ? '--' : doc.steps_count) + '</td><td>' + esc(clip(doc.summary, 80)) + '</td></tr>').join('');
+}
+async function loadDoc(docId) {
+  showDrawer('经验文档', '正在读取 ' + docId);
+  try {
+    const d = await apiFetch('/api/exp?action=get&doc_id=' + encodeURIComponent(docId));
+    showDrawer('经验文档：' + docId, d, d.ok === false);
+  } catch (err) { showDrawer('经验文档读取失败', String(err), true); }
+}
+function renderMemories(mems) {
+  if (!mems.length) return showEmpty($('memoryList'), '没有事实记忆');
+  $('memoryList').innerHTML = mems.map(m => '<div class="list-row"><div class="name">' + esc(m.title || m.topic_key || ('#' + (m.id == null ? '' : m.id))) + '</div><div class="meta">type=' + esc(m.type) + ' · scope=' + esc(m.scope) + ' · topic_key=' + esc(m.topic_key) + ' · pinned=' + esc(m.pinned) + '</div><div class="state">id ' + esc(m.id == null ? '--' : m.id) + '</div></div>').join('');
+}
+async function distillMemory() {
+  const title = ($('distillTitle').value || '').trim();
+  if (!window.confirm('将从近期真实调用轨迹提炼并写入经验文档，继续吗？')) return;
+  showDrawer('经验提炼', '正在调用 /api/memory/distill');
+  try {
+    const res = await postJson('/api/memory/distill', { title: title, limit: 20 });
+    showDrawer('经验提炼结果', res, res.ok === false);
+    if (res.ok !== false) loadMemory(true);
+  } catch (err) { showDrawer('经验提炼失败', String(err), true); }
+}
+async function exportObsidian() {
+  const vault = ($('vaultPath').value || '').trim();
+  if (!window.confirm('将导出记忆与经验到 Obsidian 库，继续吗？')) return;
+  showDrawer('Obsidian 导出', '正在调用 /api/memory/export_obsidian');
+  try {
+    const res = await postJson('/api/memory/export_obsidian', { vault_path: vault });
+    showDrawer('Obsidian 导出结果', res, res.ok === false);
+  } catch (err) { showDrawer('Obsidian 导出失败', String(err), true); }
+}
+
+async function loadTrace(force) {
+  if (!force && State.loaded.trace) return;
+  showLoading($('traceTableBody'), '正在读取调用轨迹');
+  try {
+    const d = await apiFetch('/api/trace?limit=100');
+    State.trace = d;
+    State.loaded.trace = true;
+    $('traceMetrics').innerHTML = '原始 <b>' + esc(d.raw_count == null ? '--' : d.raw_count) + '</b> · 有效 <b>' + esc(d.effective_count == null ? '--' : d.effective_count) + '</b> · 探索过滤 <b>' + esc(d.discovery_eliminated_count == null ? '--' : d.discovery_eliminated_count) + '</b> · 失败 <b>' + esc(d.failed_count == null ? '--' : d.failed_count) + '</b> · 模块 <b>' + esc(listText(d.modules)) + '</b> · 工具 <b>' + esc(listText(d.tools)) + '</b>';
+    renderTraceRows();
+  } catch (err) { showError($('traceMetrics'), err); showError($('traceTableBody'), err); }
+}
+function renderTraceRows() {
+  const d = State.trace;
+  if (!d) return showEmpty($('traceTableBody'), '等待读取');
+  const filter = $('traceFilter').value;
+  let rows = [];
+  if (filter === 'all' || filter === 'effective') rows = rows.concat((d.effective_steps || []).map(x => Object.assign({ _kind: '有效步骤' }, x)));
+  if (filter === 'all' || filter === 'discovery') rows = rows.concat((d.discovery_calls || []).map(x => Object.assign({ _kind: '探索调用' }, x)));
+  if (filter === 'all' || filter === 'failed') rows = rows.concat((d.failed_calls || []).map(x => Object.assign({ _kind: '失败调用' }, x)));
+  rows.sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
+  if (!rows.length) return setHTML('traceTableBody', '<tr><td colspan="7" class="empty">该筛选下没有记录</td></tr>');
+  $('traceTableBody').innerHTML = rows.map(r => '<tr><td class="mono">' + esc(r.ts || '') + '</td><td>' + esc(r._kind) + '</td><td>' + esc(r.module || '') + '</td><td class="mono">' + esc(r.display_tool || r.tool || '') + '</td><td>' + esc(r.ok === false ? '失败' : '成功') + '</td><td>' + esc(r.ms == null ? '--' : r.ms + ' ms') + '</td><td class="mono">' + esc(clip(JSON.stringify(r.args || {}), 90)) + '</td></tr>').join('');
+}
+
+function renderCatalog() {
+  const modules = Array.from(new Set(State.meta.map(x => x.module || ''))).filter(Boolean).sort();
+  const sel = $('toolModule');
+  if (sel) {
+    const current = sel.value;
+    sel.innerHTML = '<option value="">全部模块</option>' + modules.map(m => '<option value="' + esc(m) + '">' + esc(m) + '</option>').join('');
+    if (modules.includes(current)) sel.value = current;
+  }
+  const q = (($('toolSearch') && $('toolSearch').value) || '').trim().toLowerCase();
+  const mod = (sel && sel.value) || '';
+  const rows = State.meta.filter(x => (!mod || (x.module || '') === mod) && (!q || (x.name + ' ' + (x.description || '')).toLowerCase().includes(q)));
+  const customCount = (State.custom.groups || []).reduce((n, g) => n + ((g.nodes || []).length), 0);
+  setText('catalogStats', '登记 ' + State.meta.length + ' · 当前显示 ' + rows.length + ' · 自定义节点 ' + customCount);
+  if (!rows.length) return showEmpty($('catalogList'), '没有匹配的工具');
+  $('catalogList').innerHTML = rows.map(x => '<div class="catalog-row"><div class="catalog-name">' + esc(x.name) + '</div><div class="catalog-module">' + esc(x.module || '') + '</div><div class="catalog-desc">' + esc(x.description || '') + '</div></div>').join('');
+}
+function renderCustom() {
+  const groups = State.custom.groups || [];
+  if (!groups.length) return showEmpty($('customGroups'), '没有自定义节点');
+  $('customGroups').innerHTML = groups.map(g => {
+    const nodes = g.nodes || [];
+    return '<div class="custom-group"><div class="section-head"><h2>' + esc(g.name || g.id || '未命名分组') + '</h2><span class="hint">' + esc(nodes.length) + ' 个节点</span></div><div class="panel">' + (nodes.length ? nodes.map(n => {
+      const name = n.name || n.title || n.id || n.tool || '未命名节点';
+      const desc = n.desc || n.description || n.summary || n.tool || '';
+      return '<div class="custom-node"><b>' + esc(name) + '</b> <span class="note">' + esc(desc) + '</span></div>';
+    }).join('') : '<div class="empty">该分组没有节点</div>') + '</div></div>';
+  }).join('');
+}
+function activateView(name, force) {
+  State.view = VIEW_LABELS[name] ? name : 'assembly';
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + State.view));
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === State.view));
+  setText('topView', VIEW_LABELS[State.view]);
+  const loaders = {
+    assembly: () => loadAssembly(force),
+    comms: () => activateCommSub(State.commsSub, force),
+    office: () => loadWorkspace(force),
+    memory: () => loadMemory(force),
+    trace: () => loadTrace(force),
+    tools: () => { renderCatalog(); renderCustom(); },
+    workspace: () => loadWorkspace(force)
+  };
+  if (loaders[State.view]) loaders[State.view]();
+}
+async function refreshCurrent() {
+  await loadAssembly(true);
+  const map = {
+    comms: () => activateCommSub(State.commsSub, true),
+    office: () => loadWorkspace(true),
+    memory: () => loadMemory(true),
+    trace: () => loadTrace(true),
+    tools: () => { renderCatalog(); renderCustom(); },
+    workspace: () => loadWorkspace(true)
+  };
+  if (map[State.view]) await map[State.view]();
+  showToast('当前视图已刷新');
+}
+async function handlePrompt() {
+  const q = ($('promptInput').value || '').trim();
+  if (!q) return;
+  $('promptInput').value = '';
+  showDrawer('work.py ask', '正在请求：' + q);
+  try {
+    const d = await postJson('/api/prompt/ask', { query: q });
+    showDrawer('work.py ask 结果', d, d.ok === false);
+  } catch (err) { showDrawer('work.py ask 失败', String(err), true); }
+}
+function attachEvents() {
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => activateView(b.dataset.view, false)));
+  document.querySelectorAll('[data-comms-sub]').forEach(b => b.addEventListener('click', () => activateCommSub(b.dataset.commsSub, false)));
+  document.querySelectorAll('[data-comms-channel]').forEach(b => b.addEventListener('click', () => setCommsChannel(b.dataset.commsChannel)));
+  $('moduleRows').addEventListener('change', e => {
+    const t = e.target;
+    if (t.matches('[data-mcp]')) toggleOne('mcp', t.dataset.mcp, t.checked);
+    else if (t.matches('[data-skill]')) toggleOne('skill', t.dataset.skill, t.checked);
+  });
+  $('btnAllOn').addEventListener('click', () => bulkToggle(true));
+  $('btnAllOff').addEventListener('click', () => bulkToggle(false));
+  $('btnRefreshAll').addEventListener('click', refreshCurrent);
+  $('commsOverviewRefresh').addEventListener('click', () => loadCommsOverview(true));
+  $('commsSessionsRefresh').addEventListener('click', () => loadCommsSessions(true));
+  $('commsMediaRefresh').addEventListener('click', () => loadCommsMedia(true));
+  $('btnFiles').addEventListener('click', () => loadCommsFiles(true));
+  $('fileKeyword').addEventListener('keydown', e => { if (e.key === 'Enter') loadCommsFiles(true); });
+  $('sessionSearch').addEventListener('input', renderSessions);
+  $('sessionList').addEventListener('click', e => { const row = e.target.closest('[data-chat]'); if (row) selectChat(row.dataset.chat); });
+  $('btnDigest').addEventListener('click', generateDigest);
+  $('btnOfficeWorkspaceRefresh').addEventListener('click', () => loadWorkspace(true));
+  $('btnWsRefresh').addEventListener('click', () => loadWorkspace(true));
+  $('btnInspect').addEventListener('click', runInspect);
+  $('btnDiff').addEventListener('click', runDiff);
+  ['officeDirList', 'wsDirList'].forEach(id => $(id).addEventListener('click', e => { const row = e.target.closest('[data-dir]'); if (row) setWorkspaceDir(row.dataset.dir); }));
+  ['officeFileList', 'wsFileList'].forEach(id => $(id).addEventListener('click', e => { const btn = e.target.closest('[data-copy]'); if (btn) copyWorkspacePath(btn.dataset.copy, btn.dataset.path); }));
+  $('btnMemoryRefresh').addEventListener('click', () => loadMemory(true));
+  $('memoryDocsBody').addEventListener('click', e => { const btn = e.target.closest('[data-doc]'); if (btn) loadDoc(btn.dataset.doc); });
+  $('btnDistill').addEventListener('click', distillMemory);
+  $('btnExportObsidian').addEventListener('click', exportObsidian);
+  $('btnTraceRefresh').addEventListener('click', () => loadTrace(true));
+  $('traceFilter').addEventListener('change', renderTraceRows);
+  $('toolSearch').addEventListener('input', renderCatalog);
+  $('toolModule').addEventListener('change', renderCatalog);
+  $('btnToolReset').addEventListener('click', () => { $('toolSearch').value = ''; $('toolModule').value = ''; renderCatalog(); });
+  $('btnPromptSend').addEventListener('click', handlePrompt);
+  $('promptInput').addEventListener('keydown', e => { if (e.key === 'Enter') handlePrompt(); });
+  $('btnDrawerClose').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+}
+window.addEventListener('DOMContentLoaded', () => {
+  hydrateStatic();
+  attachEvents();
+  activateView('assembly', false);
+});
+</script>
+</body>
+</html>

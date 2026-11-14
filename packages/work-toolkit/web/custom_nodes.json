@@ -1,0 +1,225 @@
+{
+  "_说明": "自定义功能节点。改这个文件就能往控制台加自己的模块，不用碰 HTML。改完运行 python web/build.py 重新生成，python tools/check_nodes.py 做检查。",
+  "_字段": {
+    "col": "放到哪一列：comms 通讯（微信 + 企业微信）/ office / other 其他",
+    "groups[].id": "分组 id，英文小写，不能重复",
+    "groups[].name": "分组显示名",
+    "nodes[].id": "节点 id，全局唯一，也是网址 #锚点",
+    "nodes[].name": "节点显示名",
+    "nodes[].tag": "右上角小标签，如「只读」「写文件」",
+    "nodes[].tool": "底层 MCP 工具名，见 web/tools.json；纯展示填 null",
+    "nodes[].mode": "data 只出数据 / tool 可点「直接调用」/ search 带搜索框",
+    "nodes[].brief": "一句话说明，节点树上直接显示",
+    "nodes[].intro": "详情页的段落数组",
+    "nodes[].io": "输入输出：{in, out}",
+    "nodes[].note": "注意事项，会以浅色块显示",
+    "nodes[].args": "点「直接调用」时传的参数对象，如 {\"action\":\"summary\"}",
+    "nodes[].prompt": "点「复制提示词」时复制的自然语言句子"
+  },
+  "groups": [
+    {
+      "col": "office",
+      "id": "office_engines",
+      "name": "克隆引擎与通用增强（已接入）",
+      "nodes": [
+        {
+          "id": "engine_probe",
+          "name": "引擎体检",
+          "tag": "只读",
+          "tool": "work_office_engines",
+          "mode": "tool",
+          "brief": "克隆的那些 Office / MCP 项目，到底哪些真能用。",
+          "intro": [
+            "逐个实际加载 mcp_servers/ 下仓库的入口并数出工具数，给出 ready 与对应的调用桥。",
+            "路径存在不等于可用：OfficeMCP 要 Windows COM，wechat-chat-mcp 需独立 .venv 就绪，都会如实标注。"
+          ],
+          "io": {
+            "in": "可选关键字过滤",
+            "out": "每个引擎的 ready / bridge / note / 工具数"
+          },
+          "note": "只读。真正接进调用链的主力是 work_excel_mcp 与 work_word_mcp；已有的 work_officecli_run 一直在用。",
+          "args": {
+            "action": "probe"
+          },
+          "prompt": "克隆的 Office 和 MCP 项目到底用上了没？逐个体检，说清哪些真能调、哪些只是文件在。"
+        },
+        {
+          "id": "engine_excel",
+          "name": "高级 Excel（46 工具）",
+          "tag": "只读默认",
+          "tool": "work_excel_mcp",
+          "mode": "tool",
+          "brief": "离线透视表 / 图表 / 条件格式 / 公式追踪，先列工具清单。",
+          "intro": [
+            "接入 excel-mcp-server 2.2.9，进程内调用 46 个高级 Excel 工具，不依赖装 Office。",
+            "默认 read_only=true；确要写，传 allow_write=true，工具会先把目标工作簿复制到 02_自动备份区/。"
+          ],
+          "io": {
+            "in": "action=list 加关键字；action=call 加 tool 名与 args JSON",
+            "out": "工具清单或单次调用结果"
+          },
+          "note": "单张表改几个单元格、加公式、画图仍用 WorkBuddy 原生表格能力；这个桥只补离线批量高级操作。",
+          "args": {
+            "action": "list"
+          },
+          "prompt": "列一下克隆的 excel-mcp-server 里跟透视表有关的工具，默认只读。"
+        },
+        {
+          "id": "engine_word",
+          "name": "高级 Word（58 工具）",
+          "tag": "只读默认",
+          "tool": "work_word_mcp",
+          "mode": "tool",
+          "brief": "批注 / 脚注 / 文档保护 / 结构化编辑，先列工具清单。",
+          "intro": [
+            "接入 Office-Word-MCP-Server，58 个 Word 高级工具：多文档合并、大纲与 XML 检视、批注、脚注尾注、文档保护、按锚点插入替换、表格美化。",
+            "默认只放行 get_/list_/find_/search_/view_ 前缀；写操作需 allow_write=true 且自动备份目标 docx。"
+          ],
+          "io": {
+            "in": "action=list 加关键字；action=call 加 tool 名与 args JSON",
+            "out": "工具清单或单次调用结果"
+          },
+          "note": "写报告、写通知、普通排版仍用 WorkBuddy 原生文档能力，别拿这个桥抢活。",
+          "args": {
+            "action": "list"
+          },
+          "prompt": "列一下克隆的 Word MCP 里跟批注有关的工具，默认只读。"
+        },
+        {
+          "id": "office_compose_node",
+          "name": "富文档/PPT合成",
+          "tag": "写文件",
+          "tool": "work_office_compose",
+          "mode": "tool",
+          "brief": "Markdown + GFM 表格 + Mermaid 流程图 + LaTeX 公式 → 原生 docx/pptx。",
+          "intro": [
+            "调用 OfficeCLI 驻留引擎，把 Markdown 文本或 .md 文件一键合成为原生可编辑的 .docx 或 .pptx。",
+            "支持自动生成目录（toc=true）、水印（watermark）及 4 套风格预设（modern / academic / memo / gbt9704）。"
+          ],
+          "io": {
+            "in": "content_or_path（Markdown 文本或 .md 路径）、format（docx/pptx）、preset、toc、watermark",
+            "out": "生成后的 .docx 或 .pptx 路径及 OpenXML 校验结果"
+          },
+          "note": "不仅能做政务文档，还能直接生成带流程图与公式的技术报告、学术草稿与汇报 PPT。",
+          "args": {
+            "content_or_path": "workspace/06_运行状态/待发催办通知.md",
+            "preset": "modern",
+            "toc": true
+          },
+          "prompt": "把这篇包含表格、Mermaid 流程图和公式的 Markdown 合成一份现代风格的 Word 文档并加上目录。"
+        },
+        {
+          "id": "office_diff_node",
+          "name": "文档/表格版本对比",
+          "tag": "只读",
+          "tool": "work_office_diff",
+          "mode": "tool",
+          "brief": "两版 Word 段落/表格对比，或两张 Excel 单元格与数值差额（delta）对比。",
+          "intro": [
+            "支持 .docx vs .docx（输出段落增删改与表格单元格变动）与 .xlsx vs .xlsx（输出同名表单元格差异及数值增减 delta）。",
+            "可选传 output 导出完整 Markdown 差异对比报告。"
+          ],
+          "io": {
+            "in": "file_a（旧版路径）、file_b（新版路径）、可选 sheet / output",
+            "out": "结构化差异摘要与可选 Markdown 报告路径"
+          },
+          "note": "默认只读不改原件；支持工作区裸文件名自动定位。",
+          "args": {
+            "file_a": "2026年11月专项经费汇总母表_模板.xlsx",
+            "file_b": "2026年11月汇总母表.xlsx"
+          },
+          "prompt": "对比 2026年11月专项经费汇总母表_模板.xlsx 和 2026年11月汇总母表.xlsx 的差异，看看改了哪些单元格。"
+        },
+        {
+          "id": "office_join_docx_node",
+          "name": "多份 Word 合并汇编",
+          "tag": "写文件",
+          "tool": "work_office_join_docx",
+          "mode": "tool",
+          "brief": "将目录或多份 .docx 一键拼接合并为一份完整 Word 文档。",
+          "intro": [
+            "保留各源文档的段落样式、粗斜体与表格结构，支持自动插入分页符（page_break=true）与文件名一级标题（include_title=true）。"
+          ],
+          "io": {
+            "in": "source_dir（目录）或 files（逗号分隔/JSON 数组路径）",
+            "out": "合并后的 .docx 路径与合并份数"
+          },
+          "note": "自动排除输出文件自身与临时锁文件（~$）。",
+          "args": {
+            "source_dir": "workspace/01_微信收回原件"
+          },
+          "prompt": "把 01_微信收回原件 目录下的所有 docx 文档合并汇编成一份完整的 Word 文档。"
+        }
+      ]
+    },
+    {
+      "col": "other",
+      "id": "ext",
+      "name": "记忆与经验配方引擎（已接入）",
+      "nodes": [
+        {
+          "id": "exp_distill_node",
+          "name": "一键沉淀工具级经验",
+          "tag": "写文件",
+          "tool": "work_exp",
+          "mode": "tool",
+          "brief": "将本次工作自动整理为绑定模块与精确工具链的零探索 SOP。",
+          "intro": [
+            "自动读取近期工具调用轨迹（tool_trace.jsonl + 会话 MCP 记录），提取实际调用过的 comms/office/memory 工具链、参数模板与失败避坑。",
+            "生成含「三、精确工具清单」与「八、Agent 零探索直调配方」的独立 Markdown，支持 action=replay 一键重放与 action=to_skill 导出子 Skill。"
+          ],
+          "io": {
+            "in": "action=distill（可选 title / summary），自动采集近期工具轨迹",
+            "out": "workspace/11_任务经验/<日期>_<标题>.md 及 Agent 零探索直调指令块"
+          },
+          "note": "完成任务后直接对 AI 说「将本次工作整理为经验」即可触发，拒绝泛泛而谈。",
+          "args": {
+            "action": "distill"
+          },
+          "prompt": "将本次工作整理为经验，包含精确调用的模块工具名、参数模板和零探索直调指令。"
+        },
+        {
+          "id": "mytool",
+          "name": "经验合集导出",
+          "tag": "写文件",
+          "tool": "work_exp",
+          "mode": "tool",
+          "brief": "把所有任务经验合成一份 md，整包带走。",
+          "intro": [
+            "把 workspace/11_任务经验/ 下每篇完整原文合并成一份 Markdown，落在 06_运行状态。",
+            "任务经验不做自动检索；这份合集是给人整包复制、备份或发给别人用的。"
+          ],
+          "io": {
+            "in": "无",
+            "out": "合集 Markdown 文件路径"
+          },
+          "args": {
+            "action": "export"
+          },
+          "prompt": "把所有任务经验导出成一份 Markdown 合集，我要整包带走。"
+        },
+        {
+          "id": "mem_engram_node",
+          "name": "Engram 通用记忆与图谱",
+          "tag": "只读默认",
+          "tool": "work_mem",
+          "mode": "tool",
+          "brief": "开源 Gentleman-Programming/engram 跨会话记忆 + Obsidian 图谱导出。",
+          "intro": [
+            "接入开源 engram v3.7.1 原生单文件引擎（SQLite + FTS5 + 常驻管道 ~30ms），专门管理跨会话事实、口径、偏好与决策。",
+            "支持 topic_key 同主题自动版本演进覆盖，以及 action=export_obsidian 一键将通用记忆与任务经验联合导出为 Obsidian 知识图谱。"
+          ],
+          "io": {
+            "in": "action=save/search/context/stats/export_obsidian",
+            "out": "结构化记忆检索结果或 Obsidian 知识图谱目录"
+          },
+          "note": "work_exp 管「整段任务工具配方」，work_mem 管「跨会话事实、口径与偏好」，双层协同。",
+          "args": {
+            "action": "context"
+          },
+          "prompt": "查看当前项目的 Engram 跨会话通用记忆上下文，并导出到 Obsidian 知识图谱。"
+        }
+      ]
+    }
+  ]
+}

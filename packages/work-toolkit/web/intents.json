@@ -1,0 +1,1682 @@
+{
+  "_说明": "意图路由表。/work 的第一步是 work.py ask \"<用户原话>\"，由本文件把口语翻成确定的工具调用，避免智能体自己猜工具、跳过工具或手写脚本替代。改完跑 python tools/check_intents.py 校验。",
+  "_字段": {
+    "keywords": "关键词 -> 权重，命中权重之和为得分；权重越大越专属",
+    "control": "控制类动作，调用 work.py 的子命令而不是 work_* 工具",
+    "primary": "首选工具（智能体第一步就该调它）",
+    "steps": "完整流程；只做一件事时用 primary 即可",
+    "writes": "是否会写文件/改动本机状态",
+    "out_dir": "产物落点，写文件时必须转述给用户",
+    "confirm": "是否需要用户确认（真实发送、删除、覆盖原件）",
+    "stage": "执行阶段，小的先跑。有前后依赖时用（收材料=1，汇总=2），默认 5",
+    "note": "必须遵守的口径，原样转达给智能体"
+  },
+  "intents": [
+    {
+      "id": "setup",
+      "name": "安装 / 更新 / 新电脑准备",
+      "keywords": {
+        "安装": 8,
+        "新电脑": 8,
+        "重新准备": 7,
+        "初始化": 6,
+        "更新一下": 6,
+        "装依赖": 7,
+        "连不上": 3,
+        "缺依赖": 5
+      },
+      "control": "setup",
+      "primary": null,
+      "steps": [],
+      "writes": true,
+      "confirm": false,
+      "note": "跑 work.py setup，会自己挑解释器、补依赖、同步 Skill、验收；不要让用户手装依赖。"
+    },
+    {
+      "id": "doctor",
+      "name": "体检 / 能不能用 / 环境检查",
+      "keywords": {
+        "体检": 8,
+        "能不能用": 8,
+        "环境": 5,
+        "自检一下": 5,
+        "为什么用不了": 6,
+        "检查一下": 4
+      },
+      "control": "doctor",
+      "primary": null,
+      "steps": [],
+      "writes": false,
+      "confirm": false,
+      "note": "跑 work.py doctor；可选包缺失不影响使用，不要把它说成故障。"
+    },
+    {
+      "id": "web",
+      "name": "打开可视化控制台",
+      "keywords": {
+        "控制台": 8,
+        "打开网页": 8,
+        "看功能展示": 7,
+        "可视化控制台": 9,
+        "能力可视化": 8,
+        "看能力页": 8,
+        "打开控制台": 9,
+        "看看能力页": 8,
+        "控制台网页": 9
+      },
+      "control": "web",
+      "primary": null,
+      "steps": [],
+      "writes": false,
+      "confirm": false,
+      "note": "网页只是可选展示，不开它也能用全部功能；服务要以后台方式长驻。"
+    },
+    {
+      "id": "capabilities",
+      "name": "有哪些能力 / 参数是什么",
+      "keywords": {
+        "有哪些能力": 9,
+        "能做什么": 8,
+        "工具清单": 8,
+        "参数是什么": 8,
+        "吃什么参数": 8,
+        "有什么功能": 7
+      },
+      "control": "tools",
+      "primary": null,
+      "steps": [],
+      "writes": false,
+      "confirm": false,
+      "note": "跑 work.py tools 看精简清单；要看某个工具的参数就 work.py tools <工具名>。"
+    },
+    {
+      "id": "status",
+      "name": "运行状态 / 工具箱全貌",
+      "keywords": {
+        "什么状态": 7,
+        "运行状态": 7,
+        "工具箱状态": 8,
+        "最近结果": 5,
+        "引擎": 3,
+        "自检": 4
+      },
+      "primary": "work_status",
+      "steps": [
+        "work_status:compact"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "只读。不要传 reset_demo_fixtures=true，那是演示数据重建钩子。"
+    },
+    {
+      "id": "modules",
+      "name": "模块划分 / 分别升级",
+      "keywords": {
+        "模块划分": 10,
+        "分了几个模块": 10,
+        "哪些模块": 9,
+        "模块化": 9,
+        "单独升级": 10,
+        "分别升级": 10,
+        "改哪个模块": 10,
+        "改哪块": 8,
+        "通讯和office": 9,
+        "通讯与office": 9,
+        "代码怎么分": 8,
+        "记忆模块": 9,
+        "其他模块": 9,
+        "四个模块": 9
+      },
+      "primary": "work_modules",
+      "steps": [
+        "work_modules"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "只读。回答「通讯 / Office / 记忆 / 其他 是怎么分的 / 改哪块 / 怎么单独测」：comms 在 mcp/work_mods/comms.py（入口 work_comms_server），office 在 work_mods/office.py（入口 work_office_server），记忆（台账 / 经验 / 备份）在 work_mods/memory.py（入口 work_memory_server），其他（状态 / 模块清单）在 work_mods/other.py，是公共底座随各入口挂载。单独验收用 regress.py --module comms|office|memory。别把「模块」答成 Office 的「性能模块」或其他含义。"
+    },
+    {
+      "id": "exp_list",
+      "name": "列经验文档",
+      "keywords": {
+        "列经验": 9,
+        "经验目录": 8,
+        "有哪些经验": 8,
+        "看看经验": 6,
+        "经验列表": 8
+      },
+      "primary": "work_exp",
+      "steps": [
+        "work_exp:list"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "只列目录，不把任何经验正文读进上下文。"
+    },
+    {
+      "id": "exp_get",
+      "name": "取一篇经验全文",
+      "keywords": {
+        "取经验": 9,
+        "看某篇经验": 8,
+        "读经验": 7,
+        "打开经验": 8,
+        "经验全文": 8
+      },
+      "primary": "work_exp",
+      "steps": [
+        "work_exp:list",
+        "work_exp:get"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "先 list 找唯一匹配，再 get；content 原样给用户，不摘要不截断；多篇匹配就列候选让人选。"
+    },
+    {
+      "id": "exp_save",
+      "name": "将本次工作一键沉淀为工具级经验（自动提取调用轨迹）",
+      "keywords": {
+        "将本次工作整理为经验": 16,
+        "把本次工作整理为经验": 16,
+        "把这次工作整理为经验": 16,
+        "整理为经验": 13,
+        "整理成经验": 13,
+        "沉淀为经验": 13,
+        "总结为经验": 12,
+        "写成经验": 11,
+        "保存经验": 10,
+        "生成经验": 10,
+        "保存为sop": 11,
+        "整理成sop": 11,
+        "存一份经验": 10,
+        "复盘存档": 9,
+        "新建经验": 8
+      },
+      "primary": "work_exp",
+      "steps": [
+        "work_exp:distill"
+      ],
+      "writes": true,
+      "out_dir": "workspace/11_任务经验/",
+      "confirm": false,
+      "note": "直接调用 work_exp(action=\"distill\")，自动从近期工具调用轨迹（tool_trace.jsonl）提取实际用过的 comms/office/memory 工具链、参数模板与报错避坑，生成含「Agent 零探索直调配方」的独立 Markdown 并同步至 Engram 记忆库。"
+    },
+    {
+      "id": "exp_export",
+      "name": "导出经验合集",
+      "keywords": {
+        "导出经验": 10,
+        "经验合集": 9,
+        "打包经验": 8
+      },
+      "primary": "work_exp",
+      "steps": [
+        "work_exp:export"
+      ],
+      "writes": true,
+      "out_dir": "workspace/11_任务经验/",
+      "confirm": false,
+      "note": "导出后给具体文件路径。"
+    },
+    {
+      "id": "comms_notices",
+      "name": "最近有什么值得注意的通知（两通道消息级聚合）",
+      "keywords": {
+        "值得注意": 10,
+        "通讯软件": 9,
+        "有什么通知": 9,
+        "哪些通知": 8,
+        "最近的通知": 8,
+        "有没有通知": 8,
+        "有什么新消息": 8,
+        "最近有什么": 7,
+        "最近都在说": 7,
+        "错过了什么": 7,
+        "有什么待办": 7,
+        "群里有什么": 6,
+        "通知都说了": 6,
+        "消息里有没有": 6
+      },
+      "primary": "work_comms_notices",
+      "steps": [
+        "work_comms_notices"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "泛问「通讯里最近有什么值得注意的通知」时，只调 work_comms_notices 一次就够：它默认看最近 3 天、跨微信 + 企业微信、通知排在闲聊前面、带截止时间的更靠前，并给出 due/time_ref 原文片段。不要再拼 overview + 逐会话 messages + 全文 search 十几轮。notice=true 与 due 只是召回提示，答复里要按原文核对，别当成已确认的待办。要读某条全文或翻历史，才再用各通道的 messages / search。"
+    },
+    {
+      "id": "comms_overview",
+      "name": "通讯通道状态 / 两条通道能不能读",
+      "keywords": {
+        "通讯总览": 10,
+        "通讯通道": 9,
+        "通讯能不能读": 9,
+        "两个微信": 8,
+        "两条通道": 8,
+        "一眼看完通讯": 8,
+        "通道状态": 7
+      },
+      "primary": "work_comms_overview",
+      "steps": [
+        "work_comms_overview"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "只在问「能不能读 / 通道状态」时用：一次给两条通道的状态与合并后的最近会话摘要。问「最近有什么通知」请走 comms_notices，不要用总览的会话摘要硬答。要细看某个群、搜某句话，仍按有没有「企业微信/企微/wxwork」分别走 work_wechat_* 或 work_wecom_*。企业微信客户端没开时那条通道会标为读不了，别把「没有数据」当成原因。"
+    },
+    {
+      "id": "wechat_collect",
+      "name": "收材料 / 催交 / 谁没交",
+      "keywords": {
+        "收材料": 10,
+        "催收": 9,
+        "催交": 9,
+        "谁没交": 10,
+        "未交": 7,
+        "摸底表": 8,
+        "收齐": 7,
+        "收件": 6,
+        "上报材料": 7,
+        "交了几家": 7,
+        "收一下": 6,
+        "收报表": 9,
+        "报表收": 8,
+        "收文件": 6
+      },
+      "primary": "work_wechat_files",
+      "steps": [
+        "work_wechat_files:harvest"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": true,
+      "out_dir": "workspace/01_微信收回原件/",
+      "confirm": false,
+      "note": "口语「收材料」默认走 work_wechat_files(mode='harvest')：归档 + 已交/未交清单 + 催办话术。只扫描不复制用 mode='scan'，自定义筛选复制用 mode='pull'。结果优先按返回的 summary 转述：copied=0 且 skipped_duplicate>0 是「此前已归档、按去重没再复制」，不是故障；archived_total 才是归档现有总数。",
+      "stage": 1
+    },
+    {
+      "id": "wechat_inbox",
+      "name": "收件箱扫描 / 自己拉附件",
+      "keywords": {
+        "收件箱": 9,
+        "扫描附件": 8,
+        "拉文件": 8,
+        "拉取附件": 8,
+        "本地归档": 6,
+        "文件去重": 6,
+        "统计微信": 8,
+        "收到的文件": 8,
+        "收到了哪些文件": 9,
+        "统计文件": 7,
+        "多少份文件": 8
+      },
+      "primary": "work_wechat_files",
+      "steps": [
+        "work_wechat_files:scan"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": false,
+      "out_dir": "workspace/01_微信收回原件/",
+      "confirm": false,
+      "note": "只读扫描微信收件箱（mode='scan'）；如需筛选复制到工作区，改传 mode='pull'。",
+      "stage": 1
+    },
+    {
+      "id": "wechat_search",
+      "name": "查群消息 / 找某句话",
+      "keywords": {
+        "查历史": 8,
+        "找某句话": 9,
+        "群里说了": 8,
+        "搜消息": 9,
+        "搜索消息": 9,
+        "提到": 6,
+        "关键词": 5,
+        "找一下": 4,
+        "聊天记录里": 7,
+        "搜一下": 6,
+        "搜索": 6,
+        "搜一搜": 7,
+        "谁提过": 8,
+        "有没有提": 8,
+        "说过什么": 8,
+        "发过什么": 8,
+        "谁发过": 8,
+        "聊天里找": 8,
+        "搜聊天": 9,
+        "查聊天": 8,
+        "引用回复": 8,
+        "搜微信": 8
+      },
+      "primary": "work_wechat_search",
+      "steps": [
+        "work_wechat_search"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "keyword 必填；chat 可留空做全局搜索，工具会自动增量刷新缓存，无需预先调用 sync 或 probe。"
+    },
+    {
+      "id": "wechat_media",
+      "name": "群里的图片 / 截图 / 图片解密",
+      "keywords": {
+        "那张图": 9,
+        "截图": 8,
+        "图片": 7,
+        "解密": 8,
+        "聊天图片": 8,
+        "导出图片": 8
+      },
+      "primary": "work_wechat_media",
+      "steps": [
+        "work_wechat_media"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": true,
+      "out_dir": "workspace/01_微信收回原件/",
+      "confirm": false,
+      "note": "只读解密并另存，不改动微信原始文件。给具体输出目录与成功张数。",
+      "stage": 1
+    },
+    {
+      "id": "wechat_digest",
+      "name": "把群消息整理成材料",
+      "keywords": {
+        "整理成材料": 10,
+        "成纪要": 9,
+        "摘录成文": 9,
+        "群消息整理": 9,
+        "汇总成文": 7,
+        "写成稿": 6,
+        "群消息纪要": 9,
+        "聊天纪要": 9
+      },
+      "primary": "work_wechat_digest",
+      "steps": [
+        "work_wechat_digest"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "note": "只处理微信群/私聊的聊天记录，直接调用 work_wechat_digest（无需先 probe）。include_media=true 才会嵌图；默认不嵌。给产物路径。"
+    },
+    {
+      "id": "wechat_remind",
+      "name": "催办话术 / @未交单位",
+      "keywords": {
+        "催办": 9,
+        "话术": 8,
+        "@未交": 9,
+        "催一下": 8,
+        "提醒未交": 8
+      },
+      "primary": "work_wechat_remind",
+      "steps": [
+        "work_wechat_remind:dry_run"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": false,
+      "confirm": true,
+      "note": "生成 @ 未交单位催办通知话术并追加写入 06_运行状态/待发催办通知.md，供人工复制粘贴到微信群。"
+    },
+    {
+      "id": "wechat_sync",
+      "name": "同步 / 刷新微信消息库",
+      "keywords": {
+        "同步微信": 9,
+        "刷新消息库": 9,
+        "重新同步": 8,
+        "消息库": 6
+      },
+      "primary": "work_wechat_sync",
+      "steps": [
+        "work_wechat_sync"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": true,
+      "out_dir": "workspace/07_微信只读缓存/",
+      "confirm": false,
+      "note": "只读解密到缓存目录，不动微信原始数据库。",
+      "stage": 1
+    },
+    {
+      "id": "wechat_sessions",
+      "name": "会话列表 / 有哪些群",
+      "keywords": {
+        "会话列表": 9,
+        "有哪些群": 9,
+        "群列表": 8,
+        "联系人": 5,
+        "未读": 5
+      },
+      "primary": "work_wechat_sessions",
+      "steps": [
+        "work_wechat_sessions"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "只读列出最近会话（自动增量刷新缓存，无需先 probe）。查某句话直接用 work_wechat_search。"
+    },
+    {
+      "id": "wechat_messages",
+      "name": "看某个群的消息",
+      "keywords": {
+        "看群消息": 9,
+        "聊天记录": 8,
+        "看消息": 7,
+        "最近聊了": 8,
+        "某个群": 6,
+        "最近说了什么": 9,
+        "最近聊了什么": 9,
+        "聊了什么": 7,
+        "说了什么": 7,
+        "最近消息": 8,
+        "读最近": 8,
+        "聊了啥": 8,
+        "说了啥": 8,
+        "看看群": 7,
+        "翻一下群": 8,
+        "群里最近": 8,
+        "最新消息": 7
+      },
+      "primary": "work_wechat_messages",
+      "steps": [
+        "work_wechat_messages"
+      ],
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "按会话名读取微信消息（自动按需刷新缓存 + WAL 实时增量，无需先调 probe 或 sync）；只读。"
+    },
+    {
+      "id": "wecom_probe",
+      "name": "企业微信能不能读 / 连不上",
+      "keywords": {
+        "企业微信能读": 10,
+        "能读企业微信": 10,
+        "企业微信读不了": 10,
+        "企微读不了": 10,
+        "企业微信怎么读": 9,
+        "拉取企业微信": 9,
+        "企业微信没反应": 8,
+        "企业微信登录": 6
+      },
+      "require": [
+        "企业微信",
+        "企微",
+        "wxwork",
+        "wecom"
+      ],
+      "primary": "work_wecom_probe",
+      "steps": [
+        "work_wecom_probe"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "企业微信的库是 wxSQLite3 加密的，密钥只在 WXWork.exe 内存里：客户端没开就取不到钥匙。probe 会直说这件事，别把「读不到」讲成「没有数据」。"
+    },
+    {
+      "id": "wecom_read",
+      "name": "看企业微信消息 / 群聊",
+      "keywords": {
+        "企业微信群": 8,
+        "企微群": 9,
+        "企业微信消息": 9,
+        "企微消息": 9,
+        "企业微信聊天": 9,
+        "企微聊天": 9,
+        "企业微信说了什么": 10,
+        "拉一下企微": 8,
+        "企微最近说了什么": 10,
+        "企业微信最近聊了什么": 10,
+        "看企微消息": 9,
+        "读企微": 8
+      },
+      "require": [
+        "企业微信",
+        "企微",
+        "wxwork",
+        "wecom"
+      ],
+      "primary": "work_wecom_messages",
+      "steps": [
+        "work_wecom_messages"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "先 probe 确认客户端在跑（密钥在内存里），再 sessions 拿群名，最后 messages。chat 可传群名片段，也可传 R: 开头的会话 id。"
+    },
+    {
+      "id": "wecom_search",
+      "name": "搜企业微信消息",
+      "keywords": {
+        "企业微信搜": 9,
+        "企微搜": 9,
+        "企业微信里找": 9,
+        "企微里找": 9,
+        "企业微信谁提过": 10,
+        "企微谁提过": 10,
+        "谁提过": 9,
+        "提过": 7,
+        "企业微信说过": 8,
+        "企业微信搜索": 9,
+        "企微搜索": 9,
+        "在企微里搜": 9
+      },
+      "require": [
+        "企业微信",
+        "企微",
+        "wxwork",
+        "wecom"
+      ],
+      "primary": "work_wecom_search",
+      "steps": [
+        "work_wecom_search"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "正文是 protobuf，SQL 搜不到，工具按时间窗取候选再逐条解，所以把 since 给窄一点更快。"
+    },
+    {
+      "id": "wecom_files",
+      "name": "企业微信收到的文件",
+      "keywords": {
+        "企业微信文件": 9,
+        "企微文件": 9,
+        "企业微信收到": 8,
+        "企微收到": 8,
+        "企业微信发过": 8,
+        "企微发过": 8,
+        "企业微信的附件": 9,
+        "文件": 6,
+        "附件": 7,
+        "企微收到的文件": 9,
+        "企业微信有哪些文件": 9
+      },
+      "require": [
+        "企业微信",
+        "企微",
+        "wxwork",
+        "wecom"
+      ],
+      "primary": "work_wecom_files",
+      "steps": [
+        "work_wecom_files"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "on_disk=false 是真实状态：企业微信的云端文件要客户端点开才落地，不是工具没找到。转述时要讲清「消息里有、本机没下载」。"
+    },
+    {
+      "id": "wecom_collect",
+      "name": "收企业微信材料 / 归档",
+      "keywords": {
+        "企业微信收材料": 10,
+        "企微收材料": 10,
+        "收一下材料": 10,
+        "收材料": 9,
+        "收一下文件": 10,
+        "收文件": 9,
+        "企业微信收文件": 10,
+        "企微收文件": 10,
+        "企业微信归档": 9,
+        "企微归档": 9,
+        "从企业微信收": 10,
+        "从企微收": 10,
+        "收一下": 8
+      },
+      "require": [
+        "企业微信",
+        "企微",
+        "wxwork",
+        "wecom"
+      ],
+      "primary": "work_wecom_harvest",
+      "steps": [
+        "work_wecom_harvest"
+      ],
+      "writes": true,
+      "out_dir": "workspace/01_企业微信收回原件/",
+      "confirm": true,
+      "note": "先 files 看清单（含 on_disk），再 harvest。默认 dry_run=true 只给计划；用户确认后传 dry_run=false 才复制。not_downloaded 里的文件是云端没下载，不是收失败。"
+    },
+    {
+      "id": "wecom_contacts",
+      "name": "企业微信通讯录",
+      "keywords": {
+        "企业微信通讯录": 10,
+        "企微通讯录": 10,
+        "企业微信联系人": 9,
+        "企微联系人": 9,
+        "企业微信同事": 7,
+        "企微查人": 9,
+        "企业微信查人": 9,
+        "企微手机号": 9
+      },
+      "require": [
+        "企业微信",
+        "企微",
+        "wxwork",
+        "wecom"
+      ],
+      "primary": "work_wecom_contacts",
+      "steps": [
+        "work_wecom_contacts"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "只读；keyword 留空会列全部（用 limit 截断）。"
+    },
+    {
+      "id": "office_consolidate",
+      "name": "汇总 / 合并 / 核表 / 查漏填",
+      "keywords": {
+        "汇总": 8,
+        "合并": 7,
+        "核表": 9,
+        "漏填": 9,
+        "勾稽": 9,
+        "母表": 8,
+        "汇总表": 9,
+        "合并分表": 9,
+        "异常核验": 8,
+        "合并表格": 9,
+        "跨表合并": 10,
+        "汇总分表": 9,
+        "核对表格": 9,
+        "数据校验": 8
+      },
+      "primary": "work_office_consolidate",
+      "steps": [
+        "work_office_consolidate"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "note": "该工具没有 dry_run / preview 参数，一定会写 xlsx 和《异常数据核验单》。想先看结构用 work_office_inspect；不要宣称可以 dry-run。异常逐条转述，officecli_validation.success=false 先修再交付。返回里的 consistency 是收件口径对照：level=warn 说明「本次未交」的科室在归档里有旧材料，转述时不能写成「从未提交」，催办名单仍以 harvest 的 missing_departments 为准。",
+      "stage": 2
+    },
+    {
+      "id": "office_engines",
+      "name": "克隆的 Office / MCP 引擎到底用上了没",
+      "keywords": {
+        "克隆的": 9,
+        "克隆的那些": 10,
+        "引擎体检": 10,
+        "哪些引擎": 9,
+        "office 引擎": 9,
+        "mcp 用上": 10,
+        "用上了没": 9,
+        "接进来没": 8,
+        "引擎能用": 8,
+        "高级 office": 8
+      },
+      "primary": "work_office_engines",
+      "steps": [
+        "work_office_engines"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "只读体检：逐个实际加载克隆仓库的入口并数出工具数，ready=true 才代表真能调。回答时按 engines 里的 bridge 与 note 如实说：OfficeMCP 依赖 Windows COM，wechat-chat-mcp 依赖独立 .venv，别把路径存在当成可用。真正能调的主力是 work_excel_mcp / work_word_mcp、work_officecli_run 与 wechat_chat。"
+    },
+    {
+      "id": "office_excel_bridge",
+      "name": "高级 Excel 离线能力（克隆的 excel-mcp-server）",
+      "keywords": {
+        "excel-mcp": 10,
+        "excel mcp": 10,
+        "高级 excel": 10,
+        "离线 excel": 9,
+        "excel 引擎": 9,
+        "公式审计": 9,
+        "公式追踪": 9,
+        "目标求解": 8,
+        "切片器": 8,
+        "批量透视": 8,
+        "透视表": 9,
+        "数据透视": 10,
+        "柱状图": 8,
+        "折线图": 8,
+        "饼图": 8,
+        "条件格式": 9,
+        "数据验证": 9,
+        "下拉列表": 8,
+        "公式依赖": 9,
+        "迷你图": 8
+      },
+      "primary": "work_excel_mcp",
+      "steps": [
+        "work_excel_mcp:list"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "46 个高级 Excel 离线工具（透视表 / 图表 / 条件格式 / 数据验证 / 公式追踪 / 目标求解等）。action=list 含完整参数 schema；action=call 传 tool + args JSON（自动兼容 path/file/file_path 与工作区相对路径）。"
+    },
+    {
+      "id": "office_word_bridge",
+      "name": "高级 Word 离线能力（克隆的 Word MCP）",
+      "keywords": {
+        "word-mcp": 10,
+        "word mcp": 10,
+        "高级 word": 10,
+        "word 引擎": 9,
+        "文档保护": 9,
+        "脚注尾注": 9,
+        "批注和修订": 8,
+        "xml 检视": 8,
+        "添加脚注": 9,
+        "插入脚注": 9,
+        "转尾注": 9,
+        "密码保护": 9,
+        "限制编辑": 9,
+        "隔行变色": 9,
+        "锚点插入": 9,
+        "锚点替换": 9
+      },
+      "primary": "work_word_mcp",
+      "steps": [
+        "work_word_mcp:list"
+      ],
+      "writes": false,
+      "stage": 1,
+      "confirm": false,
+      "note": "58 个高级 Word 工具（多文档合并 / 大纲与 XML 检视 / 批注提取 / 脚注尾注 / 文档保护 / 按锚点插入替换 / 表格美化）。action=list 含完整参数 schema；action=call 传 tool + args JSON（自动兼容 filename/file/path 与工作区相对路径）。"
+    },
+    {
+      "id": "office_format",
+      "name": "多预设专业文档排版（gbt9704 国标公文 / modern 现代商务 / academic 学术 / memo 备忘录）",
+      "keywords": {
+        "公文": 9,
+        "红头": 9,
+        "国标": 8,
+        "排版": 4,
+        "9704": 9,
+        "小标宋": 8,
+        "仿宋": 6,
+        "排成公文": 10,
+        "公文格式": 10,
+        "红头文件": 9,
+        "标准公文": 9,
+        "国标公文": 10,
+        "排版成公文": 10,
+        "现代排版": 9,
+        "现代风格排版": 9,
+        "商务排版": 9,
+        "学术排版": 9,
+        "学术论文排版": 9,
+        "三线表排版": 9,
+        "备忘录排版": 9
+      },
+      "primary": "work_office_format_gbt9704",
+      "steps": [
+        "work_office_format_gbt9704"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "note": "支持 preset='gbt9704'（默认，党政机关红头公文）、'modern'（现代商务蓝灰卡片表头）、'academic'（学术论文三线表）、'memo'（极简内部备忘录），并原生渲染 Markdown GFM 表格与列表。",
+      "stage": 2
+    },
+    {
+      "id": "office_pdf",
+      "name": "导出 PDF / 转 PDF",
+      "keywords": {
+        "导出pdf": 10,
+        "转pdf": 10,
+        "导出 PDF": 10,
+        "转 PDF": 10,
+        "批量转": 7,
+        "pdf 转换": 9,
+        "转成pdf": 10,
+        "转成 PDF": 10,
+        "转为pdf": 10,
+        "输出pdf": 9,
+        "另存为pdf": 9,
+        "生 pdf": 8,
+        "word 转 pdf": 10,
+        "excel 转 pdf": 10
+      },
+      "primary": "work_office_to_pdf",
+      "steps": [
+        "work_office_to_pdf"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "note": "只处理「转成 PDF / 导出 PDF」，不处理「读 PDF / 总结 PDF」——那是 WorkBuddy 原生 PDF 能力。给产物路径和页数；不覆盖原文件；engine 可指定 ms/wps。",
+      "stage": 3
+    },
+    {
+      "id": "office_inspect",
+      "name": "读文档 / 看大纲 / 看表结构",
+      "keywords": {
+        "读文档": 8,
+        "看大纲": 9,
+        "看表结构": 9,
+        "看看这个表": 7,
+        "文件里有什么": 9,
+        "有什么内容": 7,
+        "看看这个文件": 7,
+        "文档内容": 7,
+        "读一下": 5,
+        "预览内容": 5,
+        "读取": 7,
+        "范围数据": 9,
+        "区域数据": 9,
+        "截图": 9,
+        "缩略图": 9,
+        "渲染成图": 9,
+        "提取批注": 9,
+        "查看批注": 9,
+        "有什么批注": 9,
+        "构建指南": 9,
+        "load_skill": 10
+      },
+      "primary": "work_office_inspect",
+      "steps": [
+        "work_office_inspect"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "纯只读。支持 mode=text/outline/stats/issues/annotated/forms/comments/screenshot/html/svg/pdf/skills；xlsx 区域读取传 cell_range（如 'A1:G10' 或 'Sheet1!A1:G10'，表名不匹配会自动回退首张工作表）。"
+    },
+    {
+      "id": "office_edit",
+      "name": "改 docx/xlsx/pptx",
+      "keywords": {
+        "改文档": 9,
+        "修改docx": 9,
+        "编辑表格": 8,
+        "改一下": 5,
+        "替换内容": 5,
+        "写入": 5
+      },
+      "primary": "work_office_inspect",
+      "steps": [
+        "work_office_inspect",
+        "work_backup_file",
+        "work_officecli_run",
+        "work_officecli_run:validate"
+      ],
+      "writes": true,
+      "out_dir": "workspace/02_自动备份区/ + 原文件",
+      "confirm": true,
+      "note": "覆盖原件前必须 work_backup_file 并先问用户；改完用 work_officecli_run(command=\"validate\", file=<原文件路径>) 校验，validate 必须带 file。改多处或批量设置格式改用 work_office_batch；属性名不确定先 work_office_schema；Word 大范围查找替换可用 work_office_com action=replace。",
+      "stage": 3
+    },
+    {
+      "id": "officecli",
+      "name": "OfficeCLI 直调",
+      "keywords": {
+        "officecli": 10,
+        "命令行调用": 6,
+        "直接调": 5
+      },
+      "primary": "work_officecli_run",
+      "steps": [
+        "work_officecli_run"
+      ],
+      "writes": true,
+      "out_dir": "原文件（就地修改，改前先 work_backup_file）",
+      "confirm": true,
+      "note": "command 支持 validate/view/get/query/set/add/remove/move/swap/raw/raw-set/add-part/batch/refresh/save/open/close/dump/help/plugins；不支持的会返回明确 error。多步用 work_office_batch，建文档 work_office_create，套模板 work_office_merge，导 CSV work_office_import。文件被占用先 command=close。"
+    },
+    {
+      "id": "office_schema",
+      "name": "查 OfficeCLI 元素与属性怎么写",
+      "keywords": {
+        "schema": 10,
+        "有哪些元素": 9,
+        "属性怎么": 8,
+        "参数怎么写": 8,
+        "怎么设置格式": 7,
+        "officecli help": 10,
+        "有什么属性": 8,
+        "有哪些属性": 8,
+        "属性怎么填": 8,
+        "属性表": 7,
+        "元素有哪些": 8
+      },
+      "primary": "work_office_schema",
+      "steps": [
+        "work_office_schema"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "只读。format 可 docx/xlsx/pptx；先列元素再查属性。空参只返回总览（mode=overview），答不出属性名——必须带 format，最好连 verb / element 一起给。不要凭印象编 --prop 名。"
+    },
+    {
+      "id": "office_create",
+      "name": "新建空白文档 / 从零做表",
+      "keywords": {
+        "从零": 8,
+        "空表": 8,
+        "建个表": 9,
+        "新建一份": 10,
+        "新建": 6,
+        "空白": 5,
+        "空白文档": 9,
+        "空白表格": 9,
+        "空白excel": 9,
+        "新建excel": 9,
+        "新建word": 9,
+        "新建ppt": 9,
+        "新建文档": 10,
+        "新建表格": 10,
+        "做一个表": 7,
+        "白纸": 6,
+        "新建一个": 5
+      },
+      "primary": "work_office_create",
+      "steps": [
+        "work_office_create"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "note": "默认落 03_汇总与成稿输出/；force=true 才覆盖已有文件。建完用 work_office_batch 写内容。",
+      "stage": 1
+    },
+    {
+      "id": "office_batch",
+      "name": "一次改多处 / 批量加内容或格式",
+      "keywords": {
+        "批量改": 10,
+        "一次改完": 9,
+        "多处修改": 9,
+        "统一格式": 9,
+        "加粗": 8,
+        "字号": 7,
+        "边框": 7,
+        "批量加": 9,
+        "加表格": 7,
+        "加图片": 7
+      },
+      "primary": "work_office_batch",
+      "steps": [
+        "work_office_inspect",
+        "work_backup_file",
+        "work_office_batch",
+        "work_officecli_run:validate"
+      ],
+      "writes": true,
+      "out_dir": "workspace/02_自动备份区/ + 原文件",
+      "confirm": true,
+      "note": "覆盖原件前先备份并问用户；属性名不确定先 work_office_schema；改完 validate。",
+      "stage": 3
+    },
+    {
+      "id": "office_merge",
+      "name": "按模板批量生成 / 套模板",
+      "keywords": {
+        "套模板": 10,
+        "按模板": 8,
+        "占位符": 10,
+        "批量生成": 9,
+        "模板生成": 9,
+        "一户一份": 8,
+        "发给各家": 7
+      },
+      "primary": "work_office_merge",
+      "steps": [
+        "work_office_merge"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "note": "模板里写 {{key}}；多组数据就换 output 逐组调用；输出扩展名必须与模板一致。",
+      "stage": 2
+    },
+    {
+      "id": "office_import",
+      "name": "CSV/TSV 导入 Excel",
+      "keywords": {
+        "导入csv": 10,
+        "导入 excel": 10,
+        "导入表格": 9,
+        "粘贴数据": 7,
+        "csv 导入": 10,
+        "csv导入": 10,
+        "把csv导进": 10,
+        "导进表": 9,
+        "导入到 excel": 10
+      },
+      "primary": "work_office_import",
+      "steps": [
+        "work_office_import"
+      ],
+      "writes": true,
+      "out_dir": "目标 xlsx",
+      "confirm": false,
+      "note": "方向是 **CSV → Excel**，目标必须是已存在的 .xlsx（先 work_office_create）。反过来「xlsx 导出成 csv」不归这里，用原生表格能力。表名要真实存在；分隔符不对就传 delimiter。",
+      "stage": 2
+    },
+    {
+      "id": "office_replace",
+      "name": "Word 里查找替换",
+      "keywords": {
+        "替换": 9,
+        "查找替换": 10,
+        "替换成": 9,
+        "全部换成": 9,
+        "换成": 6,
+        "全都改成": 9,
+        "统统改成": 9,
+        "文中所有": 8
+      },
+      "primary": "work_office_com",
+      "steps": [
+        "work_office_com:replace"
+      ],
+      "writes": true,
+      "out_dir": "原文件（就地保存）",
+      "confirm": true,
+      "note": "只支持 Word；覆盖原件前先 work_backup_file 并说明改了哪里。find 必填（要查的原文），replace 可为空串表示删除。",
+      "stage": 3
+    },
+    {
+      "id": "office_recalc",
+      "name": "重算公式 / 公式不更新",
+      "keywords": {
+        "重算": 10,
+        "公式不更新": 9,
+        "公式没算": 9,
+        "值是错的": 7,
+        "重新计算": 9
+      },
+      "primary": "work_office_com",
+      "steps": [
+        "work_office_com:recalc"
+      ],
+      "writes": true,
+      "out_dir": "原文件（就地保存）",
+      "confirm": false,
+      "note": "会写盘保存；覆盖前先 work_backup_file。只支持 Excel。",
+      "stage": 3
+    },
+    {
+      "id": "office_fields",
+      "name": "刷新域 / 更新目录页码",
+      "keywords": {
+        "刷新域": 10,
+        "更新目录": 10,
+        "目录页码": 9,
+        "页码不对": 8,
+        "交叉引用": 8
+      },
+      "primary": "work_office_com",
+      "steps": [
+        "work_office_com:refresh_fields"
+      ],
+      "writes": true,
+      "out_dir": "原文件（就地保存）",
+      "confirm": false,
+      "note": "会写盘保存；覆盖前先 work_backup_file。只支持 Word。",
+      "stage": 3
+    },
+    {
+      "id": "office_cells",
+      "name": "读/写单元格",
+      "keywords": {
+        "单元格": 8,
+        "读几个格": 9,
+        "填几个数": 9,
+        "改单元格": 10,
+        "a1": 6
+      },
+      "primary": "work_office_com",
+      "steps": [
+        "work_office_com:read_cells"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "默认只读；用户明确要改时把 action 换成 set_cells 并传 cells（改前先备份）。"
+    },
+    {
+      "id": "office_apps",
+      "name": "本机装了 Office 还是 WPS",
+      "keywords": {
+        "wps": 10,
+        "装了office": 9,
+        "office还是wps": 10,
+        "用哪个引擎": 9,
+        "com": 5,
+        "装了什么版本": 9,
+        "什么版本": 7,
+        "office 版本": 9,
+        "哪个版本": 8,
+        "装了哪些": 8,
+        "有没有装": 8
+      },
+      "primary": "work_office_com",
+      "steps": [
+        "work_office_com:apps"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "只读。返回 registered（已注册组件）与 live（正在运行的实例）；导出 PDF 时 engine 可指定 ms/wps。"
+    },
+    {
+      "id": "office_python",
+      "name": "用 Python 直接操控打开的 Office / WPS",
+      "keywords": {
+        "run_python": 10,
+        "runpython": 10,
+        "实时填表": 9,
+        "操控窗口": 9,
+        "写段脚本改": 9,
+        "打开着的文档": 8,
+        "按我说的排": 8,
+        "所见即所得": 8,
+        "当前激活": 8,
+        "改我打开": 9,
+        "打开的那个": 8,
+        "打开的表格": 7,
+        "写脚本改": 9,
+        "操控打开的": 8
+      },
+      "primary": "work_office_com",
+      "steps": [
+        "work_office_com:run_python"
+      ],
+      "writes": true,
+      "confirm": true,
+      "out_dir": "（改动发生在用户打开的文档里）",
+      "note": "注入 Officer（Officer.Word/.Excel/.PPT）执行 Python，优先接管用户已经开着的窗口，改完看得见。属于任意代码执行：动手前先跟用户确认要改哪个文件、改什么，改完提醒 Save() 才落盘。固定动作够用就别上 run_python（导出 PDF 用 export_pdf、读写单元格用 read_cells/set_cells）。"
+    },
+    {
+      "id": "office_active",
+      "name": "现在开着哪些 Office 文档",
+      "keywords": {
+        "当前打开": 9,
+        "开着什么": 9,
+        "激活的文档": 9,
+        "正在编辑": 8,
+        "active": 6,
+        "开着哪些": 9,
+        "开了哪些": 8,
+        "哪些文档": 8,
+        "开着的": 7
+      },
+      "primary": "work_office_com",
+      "steps": [
+        "work_office_com:active"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "只读。返回每个应用的文档数与当前激活文件；saved=false 说明有未保存改动，别当成已落盘。"
+    },
+    {
+      "id": "office_watch",
+      "name": "边改边看的实时预览",
+      "keywords": {
+        "实时预览": 10,
+        "watch": 9,
+        "看着改": 9,
+        "边改边看": 9,
+        "开个预览": 8,
+        "预览页面": 8
+      },
+      "primary": "work_office_watch",
+      "steps": [
+        "work_office_watch:start"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "起本地预览服务后，officecli 的每次改动都会自动刷新到网页，适合「改一版看一眼」。给用户 http://127.0.0.1:26315 这个地址；用完 action=stop，别让它一直占端口。"
+    },
+    {
+      "id": "backup",
+      "name": "备份 / 留个副本",
+      "keywords": {
+        "备份": 10,
+        "留个副本": 9,
+        "复制一份": 7,
+        "存档副本": 8
+      },
+      "primary": "work_backup_file",
+      "steps": [
+        "work_backup_file"
+      ],
+      "writes": true,
+      "out_dir": "workspace/02_自动备份区/",
+      "confirm": false,
+      "note": "任意文件都能备份，带时间戳另存，绝不修改源文件。可以直接单独调用，不必先有「要改文档」的前提。"
+    },
+    {
+      "id": "ledger",
+      "name": "台账 / 谁交了 / 交了几版",
+      "keywords": {
+        "台账": 10,
+        "交了几版": 9,
+        "谁交了": 8,
+        "登记": 6,
+        "来文记录": 7,
+        "交件记录": 9,
+        "收件台账": 10,
+        "材料台账": 10,
+        "报送情况": 8,
+        "交齐了没": 8,
+        "交件历史": 9,
+        "报送记录": 9,
+        "提交记录": 9,
+        "收件历史": 9,
+        "交了什么": 8
+      },
+      "primary": "work_ledger",
+      "steps": [
+        "work_ledger"
+      ],
+      "writes": true,
+      "out_dir": "workspace/06_运行状态/",
+      "confirm": false,
+      "note": "action 常用 list / add；未知 action 会返回明确 error。"
+    },
+    {
+      "id": "upgrade",
+      "name": "改网页 / 加节点 / 换样式",
+      "keywords": {
+        "加节点": 9,
+        "改网页": 9,
+        "换样式": 9,
+        "改控制台": 9,
+        "自定义功能": 8,
+        "改布局": 8
+      },
+      "control": "skill",
+      "primary": null,
+      "steps": [],
+      "writes": true,
+      "confirm": true,
+      "note": "交给维护者用的 work-console-upgrade Skill；改完跑 check_nodes.py 和 build.py。日常用户不需要知道。"
+    },
+    {
+      "id": "wechat_contacts",
+      "name": "微信通讯录与共同群查询",
+      "stage": 5,
+      "primary": "work_wechat_contacts",
+      "steps": [
+        "work_wechat_contacts"
+      ],
+      "writes": false,
+      "confirm": false,
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "keywords": {
+        "微信通讯录": 10,
+        "微信联系人": 10,
+        "查联系人": 9,
+        "微信号": 8,
+        "备注名": 8,
+        "在哪些群": 9,
+        "共同群": 10,
+        "共同的群": 10,
+        "一起在的群": 9,
+        "都在哪些群": 10,
+        "查一下联系人": 9
+      },
+      "note": "直读 contact.db 查微信联系人、备注、微信号及所在微信群，或查多人共同所在的微信群。"
+    },
+    {
+      "id": "wechat_group_info",
+      "name": "微信群成员与群公告查询",
+      "stage": 5,
+      "primary": "work_wechat_contacts",
+      "steps": [
+        "work_wechat_contacts:group"
+      ],
+      "writes": false,
+      "confirm": false,
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "keywords": {
+        "群成员": 10,
+        "群主是谁": 10,
+        "群公告": 10,
+        "所有群公告": 10,
+        "群里有哪些人": 10,
+        "群里有多少人": 9,
+        "群名单": 9,
+        "有哪些群成员": 10,
+        "看看群公告": 10,
+        "查群成员": 10
+      },
+      "note": "直读 contact.db 查看指定群的群主、群公告与完整群成员名单，或跨所有群汇总非空群公告。"
+    },
+    {
+      "id": "wechat_solitaire",
+      "name": "微信群接龙解析与未接龙核对",
+      "stage": 5,
+      "primary": "work_wechat_solitaire",
+      "steps": [
+        "work_wechat_solitaire"
+      ],
+      "writes": false,
+      "confirm": false,
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "keywords": {
+        "接龙": 10,
+        "群接龙": 10,
+        "谁没接龙": 10,
+        "接龙名单": 10,
+        "未接龙": 10,
+        "接龙情况": 9,
+        "接龙统计": 10,
+        "还没接龙": 10
+      },
+      "note": "直读 solitaire.db 解析微信群接龙明细，自动对比群成员或科室底册输出未接龙名单与催办话术。"
+    },
+    {
+      "id": "wechat_favorites",
+      "name": "微信收藏夹检索与提取",
+      "stage": 5,
+      "primary": "work_wechat_favorites",
+      "steps": [
+        "work_wechat_favorites"
+      ],
+      "writes": false,
+      "confirm": false,
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "keywords": {
+        "微信收藏": 10,
+        "收藏夹": 10,
+        "收藏里": 9,
+        "我收藏的": 10,
+        "收藏的链接": 10,
+        "收藏的笔记": 10,
+        "收藏的文件": 10,
+        "收藏记录": 9,
+        "收藏的密码": 10,
+        "收藏的网盘": 10
+      },
+      "note": "直读 favorite.db 提取微信收藏夹里的笔记、密码、网页/飞书/网盘链接、文件与合并聊天记录。"
+    },
+    {
+      "id": "wechat_insights",
+      "name": "微信群聊深度画像与待办提取",
+      "stage": 5,
+      "primary": "work_wechat_insights",
+      "steps": [
+        "work_wechat_insights"
+      ],
+      "writes": false,
+      "confirm": false,
+      "not_with": [
+        "企业微信",
+        "企微",
+        "wxwork"
+      ],
+      "keywords": {
+        "群聊统计": 10,
+        "群活跃度": 10,
+        "谁发言最多": 10,
+        "发言排行": 10,
+        "活跃排行": 9,
+        "群画像": 10,
+        "会话画像": 10,
+        "群里的链接": 9,
+        "分享的链接": 9,
+        "提取待办": 10,
+        "群待办": 10,
+        "群重点": 9,
+        "分析一下群": 9,
+        "分析群聊": 9,
+        "活跃度统计": 10
+      },
+      "note": "一次调用完成微信群/会话活跃发言人排行、分享链接/云文档汇总、聊天文件汇总与待办死线提取。"
+    },
+    {
+      "id": "wecom_sessions",
+      "name": "企业微信会话列表",
+      "stage": 5,
+      "primary": "work_wecom_sessions",
+      "steps": [
+        "work_wecom_sessions"
+      ],
+      "writes": false,
+      "confirm": false,
+      "require": [
+        "企业微信",
+        "企微",
+        "wxwork",
+        "wecom"
+      ],
+      "keywords": {
+        "企业微信有哪些群": 10,
+        "企微有哪些群": 10,
+        "企业微信会话": 10,
+        "企微会话": 10,
+        "企微未读": 9,
+        "企业微信未读": 9,
+        "企微群列表": 10
+      },
+      "note": "列出企业微信最近会话（群聊/单聊、未读数、最后消息时间）。"
+    },
+    {
+      "id": "office_compose",
+      "name": "通用富文档 / PPT 演示文稿一键合成（Markdown + 表格 + Mermaid + 公式）",
+      "keywords": {
+        "mermaid": 10,
+        "流程图": 8,
+        "数学公式": 9,
+        "富文档": 9,
+        "markdown转word": 10,
+        "markdown 转 word": 10,
+        "md转word": 10,
+        "md 转 word": 10,
+        "md转docx": 10,
+        "markdown转docx": 10,
+        "markdown转ppt": 10,
+        "markdown 转 ppt": 10,
+        "md转ppt": 10,
+        "md 转 ppt": 10,
+        "生成ppt": 9,
+        "生成 ppt": 9,
+        "做成ppt": 9,
+        "做成 ppt": 9,
+        "生成演示文稿": 9,
+        "合成文档": 9,
+        "加水印": 8,
+        "自动目录": 8
+      },
+      "primary": "work_office_compose",
+      "steps": [
+        "work_office_compose"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "stage": 2,
+      "note": "支持将 Markdown（含 GFM 表格、```mermaid 流程图、$$LaTeX 公式$$）一键合成为原生 .docx 或 .pptx，支持 toc=true 与 watermark。"
+    },
+    {
+      "id": "office_diff",
+      "name": "文档 / 表格版本差异对比（.docx / .xlsx）",
+      "keywords": {
+        "版本对比": 10,
+        "差异对比": 10,
+        "对比差异": 10,
+        "文档对比": 10,
+        "表格对比": 10,
+        "对比两份": 9,
+        "对比两个": 9,
+        "比较两份": 9,
+        "比较两个": 9,
+        "两版差异": 10,
+        "有什么改动": 8,
+        "改了哪里": 8,
+        "对比新旧": 9,
+        "diff": 9
+      },
+      "primary": "work_office_diff",
+      "steps": [
+        "work_office_diff"
+      ],
+      "writes": false,
+      "confirm": false,
+      "stage": 1,
+      "note": "只读对比两份 .docx（段落增删改+表格变化）或两份 .xlsx（单元格变化+数值差额 delta），可选传 output 导出 Markdown 报告。"
+    },
+    {
+      "id": "office_join_docx",
+      "name": "多份 Word 文档一键合并汇编",
+      "keywords": {
+        "合并word": 10,
+        "合并 word": 10,
+        "合并docx": 10,
+        "合并 docx": 10,
+        "合成一个word": 10,
+        "合并成一个word": 10,
+        "合并成一个 word": 10,
+        "多份word合并": 10,
+        "多份文档合并": 10,
+        "合并文档": 9,
+        "拼接文档": 9,
+        "文档汇编": 9,
+        "汇编成册": 9
+      },
+      "primary": "work_office_join_docx",
+      "steps": [
+        "work_office_join_docx"
+      ],
+      "writes": true,
+      "out_dir": "workspace/03_汇总与成稿输出/",
+      "confirm": false,
+      "stage": 2,
+      "note": "将目录（source_dir）或文件列表（files）中的多份 .docx 合并为一份完整 Word 文档，保留段落格式与表格。"
+    },
+    {
+      "id": "exp_search",
+      "name": "按模块/工具/关键词检索流程经验与直调配方",
+      "keywords": {
+        "搜经验": 10,
+        "查经验": 10,
+        "查找经验": 10,
+        "检索经验": 10,
+        "相关经验": 9,
+        "按之前的经验": 11,
+        "有哪些关于": 7,
+        "工具配方": 10
+      },
+      "primary": "work_exp",
+      "steps": [
+        "work_exp:search"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "按关键词、module（comms/office/memory）或具体 tool 名检索已沉淀的流程经验，返回精确工具链与零探索直调指令块。"
+    },
+    {
+      "id": "exp_replay",
+      "name": "一键重放流程经验或导出为独立子 Skill",
+      "keywords": {
+        "重放经验": 11,
+        "按经验重放": 11,
+        "执行经验配方": 11,
+        "跑一遍经验": 10,
+        "导出为skill": 11,
+        "转成skill": 11
+      },
+      "primary": "work_exp",
+      "steps": [
+        "work_exp:replay"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "调用 work_exp(action=\"replay\", doc_id=..., vars_json=...) 一键参数化预览或重放经验中的工具链；action=\"to_skill\" 可导出为独立 SKILL.md。"
+    },
+    {
+      "id": "mem_engram",
+      "name": "通用跨会话记忆检索与保存（Engram 引擎 + Obsidian 图谱导出）",
+      "keywords": {
+        "通用记忆": 10,
+        "长期记忆": 10,
+        "记住这个口径": 12,
+        "存入记忆": 11,
+        "保存记忆": 10,
+        "检索记忆": 11,
+        "查一下记忆": 11,
+        "记忆上下文": 10,
+        "engram": 10,
+        "导出到obsidian": 12,
+        "导出obsidian": 12,
+        "知识图谱导出": 11
+      },
+      "primary": "work_mem",
+      "steps": [
+        "work_mem:context"
+      ],
+      "writes": false,
+      "confirm": false,
+      "note": "基于开源 Gentleman-Programming/engram v3.7.1 原生引擎：save 存事实/口径/偏好（支持 topic_key 自动覆盖演进），search 全文检索，context 看近期记忆，export_obsidian 联合导出 Engram 与任务经验至 Obsidian 知识图谱。"
+    }
+  ],
+  "channel_map": {
+    "_说明": "微信与企业微信通道统一口径（自动缓存与 WAL 增量刷新，无需前置 probe）",
+    "local_inbox_ready=true": "收到的文件/附件扫描与归档：work_wechat_files(mode='scan'|'pull'|'harvest')",
+    "message_db_readable=true": "聊天文字与全文搜索：直接调 work_wechat_messages / work_wechat_search（自动增量刷新缓存与 WAL）",
+    "泛问最近通知": "两条通道一起看、且只问「最近有什么值得注意的」时，首选 work_comms_notices 一次调用",
+    "all_false": "不要反复重试、不要编数据；调用 work_wechat_probe 查看具体未就绪项并如实告知用户"
+  }
+}
