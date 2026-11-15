@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """work_office_server.py — Office 模块的独立入口（stdin/stdout MCP 服务）。
 
-只挂「其他 + Office」17 个工具，不加载任何微信 / 企业微信依赖。适合把 Office 交给
-一个独立的 MCP 连接（不需要微信客户端开着，也不受通讯模块改动影响）。
+只挂「其他 + Office」的精简工具面，不加载任何微信 / 企业微信依赖。Office 对外只有一个
+MCP 入口，日常走 inspect/compose/batch，专项能力按需走 advanced。
 
     python mcp/work_office_server.py         # 手工起一个 stdio 服务
     python scripts/work.py modules            # 看模块与工具归属
@@ -31,10 +31,12 @@ server = make_server(
     name="work-office",
     version=VERSION,
     instructions=(
-        "Office 模块：多科室跨表汇总与勾稽校验、OfficeCLI 检视/编辑/批量/套模板/导数据、"
-        "本机 Office 与 WPS 的 COM 实时操控、导出 PDF，以及克隆的 excel-mcp（46 个）与 "
-        "Word MCP（54 个）高级能力。写操作默认只读，需显式 allow_write 且先自动备份。"
-        "通讯相关需求不在本服务内，走 work_comms_server 或合体入口。"
+        "单一 Office MCP。优先用 work_office_inspect 读取/查 schema/渲染，"
+        "work_office_compose 生成或重排文档，work_office_batch 做结构化批量修改并自动备份、校验。"
+        "汇总核验、版本对比、Word 合并、模板套打、CSV 导入各有专用工具；"
+        "work_office_advanced 只在常规 OfficeCLI 覆盖不了时调用，背后是 Excel 46 个和 Word 58 个专项工具。"
+        "实时 Office/WPS、重算、刷新域和精确 PDF 走 work_office_com / work_office_to_pdf。"
+        "通讯相关需求不在本服务内。"
     ),
 )
 

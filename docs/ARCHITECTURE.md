@@ -24,7 +24,7 @@
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ 第 1 层：能力执行层 (Decoupled MCP Servers + Thin Skills)                │
 │   [1] work-comms   (23 tools) ──► 微信 4.x / 企微 / 通知 / 收件取证      │
-│   [2] work-office  (18 tools) ──► OfficeCLI / Excel-MCP / Word-MCP / COM │
+│   [2] work-office  (12 public) ──► OfficeCLI / Excel-MCP / Word-MCP / COM│
 │   [3] work-memory  ( 4 tools) ──► 轨迹提炼配方 / Engram / 材料台账 / 备份 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -43,10 +43,11 @@
 - **安全边界**：严格**只读**源库，不引入任何桌面点击自动发消息逻辑，催办话术落盘供人工粘贴。
 
 ### 2. `work-office` — 跨引擎文档与表格处理中枢
-- **技术本质**：**多后端异构调度器 + 只读/写前自动备份安全网关**。
+- **技术本质**：**12 个公共工具的单入口多后端调度器 + 只读/写前自动备份安全网关**。
+- **统一工具面**：`inspect` / `compose` / `batch` 覆盖常规读写，`advanced(engine="excel"|"word")` 才进入 104 个专业子工具；旧 create/schema/CLI/watch/Excel/Word 入口保留实现但不在 `tools/list` 暴露。
 - **内部引擎解构**：
   - **高速 OpenXML 原生引擎**：内置 `OfficeCLI v1.0.161`（`bin/officecli.exe`），支撑结构检视（`work_office_inspect`）、富文档合成（`work_office_compose`）、版面截图渲染与校验。
-  - **复杂表格与文档子工具桥**：按需桥接开源 `excel-mcp-server`（46 个工具，260+ 公式/透视/图表/目标求解）与 `Office-Word-MCP-Server`（58 个工具，批注/脚注/XML/锚点编辑）。默认强制只读拦截写工具，显式传入 `allow_write=true` 时先备份再执行。
+  - **复杂表格与文档子工具桥**：统一经 `work_office_advanced` 按需桥接开源 `excel-mcp-server`（46 个工具）与 `Office-Word-MCP-Server`（58 个工具）。默认强制只读拦截写工具，显式传入 `allow_write=true` 时先备份再执行。
   - **本机实时环境桥**：Windows COM（`work_office_com`）操控已打开的 Word/Excel/PPT 或 WPS，支持带超时的 `run_python` 沙箱，超时后按 PID 树强杀残留进程防止僵尸实例。
 
 ### 3. `work-memory` — 双轨记忆与零探索经验复利系统

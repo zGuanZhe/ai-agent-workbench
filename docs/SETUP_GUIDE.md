@@ -119,7 +119,7 @@ python -X utf8 packages/work-toolkit/tools/register_mcp.py --check
 python -X utf8 packages/work-toolkit/web/build.py
 python -X utf8 packages/work-toolkit/web/serve.py
 ```
-浏览器打开 `http://127.0.0.1:8765`，即可查看 47 个工具明细、经验库与 Engram 记忆可视化图谱，并通过开关实时读写 Codex `config.toml`（写入前强制 `tomllib` 校验与 `.bak` 原子备份）。
+浏览器打开 `http://127.0.0.1:8765`，即可查看 41 个公共工具明细、经验库与 Engram 记忆可视化图谱，并通过开关实时读写 Codex `config.toml`（写入前强制 `tomllib` 校验与 `.bak` 原子备份）。
 
 ### 2.5 微信 / 企业微信路径环境变量（如数据不在默认目录）
 

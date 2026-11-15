@@ -123,7 +123,7 @@ python web\build.py                         :: 生成 web\console.html
 `console.html` 是**构建产物**，仓库里不含（它内嵌本机环境快照，含微信账号目录）。每台机器自己生成一份，属正常现象。
 `build.py` 会读 `web/custom_nodes.json` 合并自定义节点，并按 UTF-8 / LF 写出，构建日志里的体积数字与文件实际字节一致。
 
-### 2.4 同步总 Skill（唯一命令 `/work`）
+### 2.4 同步模块 Skill（独立调用或 `/work` 组合）
 
 ```bat
 python scripts\install_skills.py            :: 安装 / 按内容自动更新（一致则跳过）
@@ -132,8 +132,7 @@ python scripts\install_skills.py --force   :: 内容一致也重写（先备份�
 ```
 
 仓库里的 SKILL.md 用 `<WORK_ROOT>` 占位，安装时替换成本机实际路径，再同步到 `~/.workbuddy/skills/`。
-脚本会比对内容：仓库更新后再次运行会自动覆盖旧版，并清理已合并进 `/work` 的旧命令文件
-（`/exp`、`/exp-save`、`/work-setup`）。
+脚本会比对内容：仓库更新后再次运行会自动覆盖旧版，并把独立模块 Skill 同步到 Codex 与 WorkBuddy。
 
 > **备份落在 `~/.workbuddy/skills.backups/`，不在 `skills/` 里。**
 > 早期版本把备份写成 `skills/<名字>.bak-<时间戳>/`，WorkBuddy 会把它们当成独立 Skill 再装一遍，
@@ -142,10 +141,13 @@ python scripts\install_skills.py --force   :: 内容一致也重写（先备份�
 
 | Skill | 用户可见命令 |
 | --- | --- |
-| `work-office-toolkit` | **只有 `/work`** |
+| `work-office` | 直接处理 Office；也可把它当作 `work_office` MCP 的薄路由 |
+| `work-comms` | 直接处理微信 / 企微通讯 |
+| `work-memory` | 直接处理经验、台账与通用记忆 |
+| `work-office-toolkit` | 可选的 `/work` 组合入口，不是唯一入口 |
 | `work-console-upgrade` | 无命令；维护者说「改网页」时才触发 |
 
-> 新命令文件要**重载 WorkBuddy 会话**后才会被识别。重载后不用开网页，直接 `/work <需求>`。
+> 新 Skill 要**重载 WorkBuddy / Codex 会话**后才会被识别。重载后可以直接调用模块 Skill 或 MCP；`/work` 只用于跨模块组合。
 
 **它不会抢走 WorkBuddy 的原有能力**：SKILL.md 第一节就是边界表，只接管微信收件与催办、
 跨表汇总核表、国标公文、材料台账、任务经验这几类流水；写普通文档、做 PPT、读 PDF、改单张表、
@@ -188,11 +190,11 @@ python scripts\work.py setup --check
 
 ## 3. 可选依赖
 
-**核心 42 个工具里，只有 3 个依赖下面的本机组件，缺了不影响其余工具。**
+**41 个公共工具里，只有一部分依赖下面的本机组件；缺了不影响其余工具。**
 
 ### OfficeCLI（`bin/officecli.exe`，约 32 MB）
 
-上游项目 `iOfficeAI/OfficeCLI`（本项目实测 v1.0.160），**已随仓库附带，无需另行下载**。开箱即可用：
+上游项目 `iOfficeAI/OfficeCLI`（本项目实测 v1.0.161），**已随仓库附带，无需另行下载**。开箱即可用：
 
 ```bat
 bin\officecli.exe --version
@@ -204,8 +206,9 @@ bin\officecli.exe --version
 
 | 缺了会怎样 | 工具 |
 | --- | --- |
-| 直接报错（强依赖，共 8 个） | `work_officecli_run`、`work_office_inspect`、`work_office_watch`、`work_office_schema`、`work_office_batch`、`work_office_create`、`work_office_merge`、`work_office_import` |
-| 跳过额外的 OpenXML 校验，主功能仍可用 | `work_office_consolidate`、`work_office_format_gbt9704` |
+| 直接报错 | `work_office_inspect`、`work_office_compose`、`work_office_batch`、`work_office_merge`、`work_office_import` |
+| 跳过额外的 OpenXML 校验，主功能仍可用 | `work_office_consolidate`、`work_office_engines` |
+| 不依赖 OfficeCLI | `work_office_to_pdf`、`work_office_com`、`work_office_advanced`、`work_office_diff`、`work_office_join_docx` |
 
 `python tools\doctor.py` 会把这一项标成 `❌` 并给出补齐提示。
 
@@ -253,7 +256,7 @@ set WECHAT_DATA_DIR=D:\你的路径\xwechat_files
 ```bat
 python tools\doctor.py             :: 环境逐项体检
 python scripts\setup.py --check    :: 环境 + MCP 注册状态
-python tools\regress.py            :: 82 条用例覆盖 42 个工具（约 50 秒，冷启动首次解密可达 1–2 分钟）
+python tools\regress.py            :: 101 条用例 / 41 个公共工具（约 23 秒）
 python tools\regress.py --module comms   :: 只验通讯模块 + 其他（改通讯时用）
 python tools\regress.py --module office  :: 只验 Office 模块 + 其他（改 Office 时用）
 python tools\regress.py --module memory  :: 只验记忆模块 + 其他（改台账/经验/备份时用）

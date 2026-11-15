@@ -1079,176 +1079,9 @@
     }
   },
   {
-    "name": "work_office_format_gbt9704",
-    "module": "office",
-    "description": "把 Markdown 草稿、纯文本或普通 Word 一键排版为规范 .docx 文档（自动解析标题层级、列表与 Markdown 表格）：支持 preset='gbt9704'（默认，《党政机关公文格式》GB/T 9704-2012：37/35/28/26mm页边距、红头版头、二号小标宋标题、三号仿宋28磅行距）、'modern'（现代商务/技术报告：微软雅黑深蓝标题与表头着色）、'academic'（学术论文：宋体/Times New Roman 与三线表）、'memo'（简洁备忘录），并自动用 OfficeCLI 校验。content_or_path 既可以是文件路径，也可以直接传整篇 Markdown 文本。",
-    "schema": {
-      "properties": {
-        "content_or_path": {
-          "title": "Content Or Path",
-          "type": "string",
-          "description": "正文 Markdown 文本，或一份草稿文件路径"
-        },
-        "doc_type": {
-          "default": "报告",
-          "title": "Doc Type",
-          "type": "string",
-          "description": "文种：通知 / 报告 / 请示 / 批复 / 函 / 会议纪要"
-        },
-        "header_unit": {
-          "default": "",
-          "title": "Header Unit",
-          "type": "string",
-          "description": "红头单位全称，如「某某市人民政府办公室」"
-        },
-        "doc_number": {
-          "default": "",
-          "title": "Doc Number",
-          "type": "string",
-          "description": "发文字号，如 某政办发〔2026〕12号"
-        },
-        "output_path": {
-          "default": "",
-          "title": "Output Path",
-          "type": "string",
-          "description": "输出文件路径，留空自动生成到产物目录"
-        },
-        "preset": {
-          "default": "gbt9704",
-          "title": "Preset",
-          "type": "string",
-          "description": "排版风格预设：gbt9704（默认，党政机关国标公文）/ modern（现代商务技术报告）/ academic（学术论文三线表）/ memo（简洁备忘录）"
-        }
-      },
-      "required": [
-        "content_or_path"
-      ],
-      "type": "object",
-      "title": "work_office_format_gbt9704Arguments"
-    }
-  },
-  {
-    "name": "work_officecli_run",
-    "module": "office",
-    "description": "直接调用内置 OfficeCLI (officecli.exe) 操作 .docx/.xlsx/.pptx 的单个命令。command 支持 validate/view/get/query/set/add/remove/move/swap/raw/raw-set/add-part/batch/refresh/save/open/close/dump/help/plugins；args 为附加参数数组，DOM 路径是位置参数，例如 [\"/body/p[1]\",\"--prop\",\"bold=true\"]。多步操作用 work_office_batch；建新文档用 work_office_create；套模板用 work_office_merge；导 CSV 用 work_office_import；查属性名用 work_office_schema。写操作前先 work_backup_file，写后建议 command=validate。",
-    "schema": {
-      "properties": {
-        "command": {
-          "default": "validate",
-          "title": "Command",
-          "type": "string",
-          "description": "OfficeCLI 子命令，如 validate / get / set / add"
-        },
-        "file": {
-          "default": "",
-          "title": "File",
-          "type": "string",
-          "description": "目标文件路径（任意本机文件，绝对路径或相对工作区路径）"
-        },
-        "args": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Args",
-          "description": "子命令附加参数数组，如 [\"--json\"]"
-        },
-        "timeout": {
-          "default": 120,
-          "title": "Timeout",
-          "type": "integer",
-          "description": "子进程超时秒数"
-        }
-      },
-      "required": [
-        "file"
-      ],
-      "type": "object",
-      "title": "work_officecli_runArguments"
-    }
-  },
-  {
-    "name": "work_office_watch",
-    "module": "office",
-    "description": "【起本地预览服务】用 OfficeCLI 的 watch 给 docx/xlsx/pptx 开一个实时预览网页：之后所有 work_officecli_run / work_office_batch 的改动会自动刷新到页面上，改完立刻能看见。action=start 起服务（返回 url，默认端口 26315）；status 看是否还在跑；stop 关掉；mark/unmark/marks/goto 用来在预览里标记与跳转到某个元素（path 形如 /body/p[1]）。外部程序改文件不会被感知；只认 officecli 自己的改动。用户没要求「看着改」就不用起它。",
-    "schema": {
-      "properties": {
-        "action": {
-          "default": "start",
-          "title": "Action",
-          "type": "string",
-          "description": "start 起预览 / status 查状态 / stop 停 / mark 标记元素 / unmark 取消标记 / marks 列出标记 / goto 把页面滚到某元素"
-        },
-        "file": {
-          "default": "",
-          "title": "File",
-          "type": "string",
-          "description": "要预览的 docx / xlsx / pptx"
-        },
-        "port": {
-          "default": 26315,
-          "title": "Port",
-          "type": "integer",
-          "description": "预览服务端口，默认 26315"
-        },
-        "path": {
-          "default": "",
-          "title": "Path",
-          "type": "string",
-          "description": "元素路径（mark / goto / unmark 用），如 /body/p[1]"
-        },
-        "all": {
-          "default": false,
-          "title": "All",
-          "type": "boolean",
-          "description": "unmark 时是否清掉该文件的全部标记"
-        }
-      },
-      "type": "object",
-      "title": "work_office_watchArguments"
-    }
-  },
-  {
-    "name": "work_office_schema",
-    "module": "office",
-    "description": "【只读】查 OfficeCLI 的 schema：某个格式有哪些元素、某个动词接受哪些属性、单位与可选值。写 add/set 的 --prop 之前先查这里，不要凭印象编属性名。format 留空列出全部格式；只给 format 列元素；再给 element 列该元素的属性表。【空参只返回总览 mode=overview】要属性名必须带 format（最好连 verb / element 一起给）。",
-    "schema": {
-      "properties": {
-        "format": {
-          "default": "",
-          "title": "Format",
-          "type": "string",
-          "description": "docx / xlsx / pptx；留空列全部格式"
-        },
-        "verb": {
-          "default": "",
-          "title": "Verb",
-          "type": "string",
-          "description": "add / set / get / query / remove；留空列元素清单"
-        },
-        "element": {
-          "default": "",
-          "title": "Element",
-          "type": "string",
-          "description": "元素名，如 paragraph / cell / slide"
-        }
-      },
-      "type": "object",
-      "title": "work_office_schemaArguments"
-    }
-  },
-  {
     "name": "work_office_batch",
     "module": "office",
-    "description": "【写文件】一次执行多条 OfficeCLI 操作，一次开关文件，比逐条 add/set 快且不会中间态落盘。ops 是操作数组的 JSON（也可传 .json 文件路径）。每项形如 {\"command\":\"set\",\"path\":\"/body/p[1]\",\"props\":{\"bold\":\"true\"}}；add 用 \"parent\"+\"type\"+\"props\"，query 用 \"selector\"（可加 \"compact\":true）。覆盖原件前先 work_backup_file；写完建议 command=validate 校验。【无 dry_run】想先看结构用只读的 work_office_inspect / work_officecli_run command=get。",
+    "description": "【写文件·Office 首选编辑入口】一次执行多条 OfficeCLI 操作，一次开关文件，比逐条 add/set 更快。ops 是操作数组 JSON（也可传 .json 文件路径）；add 用 parent+type+props，set 用 path+props。create=true 时目标不存在会先按扩展名创建空白 docx/xlsx/pptx；默认先自动备份，完成后自动 validate。需要属性名时先用 work_office_inspect(mode='schema') 查询，改完再用 inspect 检查内容与版式。",
     "schema": {
       "properties": {
         "file": {
@@ -1267,45 +1100,28 @@
           "title": "Timeout",
           "type": "integer",
           "description": "子进程超时秒数"
-        }
-      },
-      "required": [
-        "file",
-        "ops"
-      ],
-      "type": "object",
-      "title": "work_office_batchArguments"
-    }
-  },
-  {
-    "name": "work_office_create",
-    "module": "office",
-    "description": "【写文件】新建一份空白 .docx/.xlsx/.pptx（OfficeCLI create），再配合 work_office_batch 往里写内容。适合「从零做一张表 / 一份通知 / 一页汇报」。默认落在 03_汇总与成稿输出/；force=true 才允许覆盖已存在的文件。",
-    "schema": {
-      "properties": {
-        "file": {
-          "default": "",
-          "title": "File",
-          "type": "string",
-          "description": "要新建的文件名（不是已存在的文件），如 11月汇总表.xlsx；留空会报错，扩展名只认 .docx/.xlsx/.pptx"
         },
-        "force": {
+        "create": {
           "default": false,
-          "title": "Force",
-          "type": "boolean",
-          "description": "目标文件已存在时是否覆盖；默认 false 直接报错拒绝写入，true 会盖掉旧文件（建议先 work_backup_file）"
+          "title": "Create",
+          "type": "boolean"
         },
-        "locale": {
-          "default": "",
-          "title": "Locale",
-          "type": "string"
+        "backup": {
+          "default": true,
+          "title": "Backup",
+          "type": "boolean"
+        },
+        "validate": {
+          "default": true,
+          "title": "Validate",
+          "type": "boolean"
         }
       },
       "required": [
         "file"
       ],
       "type": "object",
-      "title": "work_office_createArguments"
+      "title": "work_office_batchArguments"
     }
   },
   {
@@ -1351,7 +1167,7 @@
   {
     "name": "work_office_import",
     "module": "office",
-    "description": "【写文件】把 CSV/TSV 数据导入 .xlsx 的某张表（OfficeCLI import）。source 给 .csv/.tsv 路径，或直接把文本给 data。header=true 会加筛选与冻结首行。目标文件不存在时先 work_office_create 建一个。",
+    "description": "【写文件】把 CSV/TSV 数据导入 .xlsx 的某张表（OfficeCLI import）。source 给 .csv/.tsv 路径，或直接把文本给 data。header=true 会加筛选与冻结首行。目标 .xlsx 不存在时自动创建；覆盖已有目标前自动备份。",
     "schema": {
       "properties": {
         "file": {
@@ -1401,6 +1217,11 @@
           "title": "Format",
           "type": "string",
           "description": "数据格式 csv / tsv，默认按扩展名推断"
+        },
+        "backup": {
+          "default": true,
+          "title": "Backup",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1511,7 +1332,7 @@
   {
     "name": "work_office_inspect",
     "module": "office",
-    "description": "全方位检视、审计与视觉渲染 .docx/.xlsx/.pptx 文档：mode=text 取纯文本（xlsx 为 A1=值，可配 cell_range 如 Sheet1!A1:F20、cols 如 A,B,C）；outline 取结构大纲；stats 取字数/字体/样式分布；issues 做格式/内容/未求值公式与域体检（可配 issue_type）；annotated 取带 DOM 路径标注视图；forms 取表单控件；comments 提取全部批注；screenshot 渲染页面/幻灯片/局部区域高清截图 PNG（可配 page、grid='auto' 整篇缩略图矩阵、output）；html/svg/pdf 导出独立预览网页或 PDF；skills 加载内置 10 套专业文档构建指南（此时 file 传 'list' 或 word/excel/pptx/data-dashboard/financial-model/academic-paper/word-form/pitch-deck/morph-ppt/morph-ppt-3d）。",
+    "description": "全方位检视、审计与视觉渲染 .docx/.xlsx/.pptx 文档：mode=text 取纯文本（xlsx 为 A1=值，可配 cell_range 如 Sheet1!A1:F20、cols 如 A,B,C）；outline 取结构大纲；stats 取字数/字体/样式分布；issues 做格式/内容/未求值公式与域体检（可配 issue_type）；annotated 取带 DOM 路径标注视图；forms 取表单控件；comments 提取全部批注；screenshot 渲染页面/幻灯片/局部区域高清截图 PNG（可配 page、grid='auto' 整篇缩略图矩阵、output）；html/svg 导出独立预览网页；schema 查 OfficeCLI 元素、动词和属性 Schema；skills 加载内置文档构建指南（file 传 list 或 word/excel/pptx/data-dashboard/financial-model/academic-paper/word-form/pitch-deck/morph-ppt/morph-ppt-3d）。需要 PDF 时用 work_office_to_pdf。",
     "schema": {
       "properties": {
         "file": {
@@ -1583,11 +1404,24 @@
           "title": "Skill",
           "type": "string",
           "description": "mode=skills 时要加载的内置指南名（如 data-dashboard / financial-model / academic-paper / pitch-deck / word-form / morph-ppt / list）"
+        },
+        "format": {
+          "default": "",
+          "title": "Format",
+          "type": "string",
+          "description": "输出格式：docx（按公文习惯排版）/ md"
+        },
+        "verb": {
+          "default": "",
+          "title": "Verb",
+          "type": "string"
+        },
+        "element": {
+          "default": "",
+          "title": "Element",
+          "type": "string"
         }
       },
-      "required": [
-        "file"
-      ],
       "type": "object",
       "title": "work_office_inspectArguments"
     }
@@ -1634,9 +1468,64 @@
     }
   },
   {
+    "name": "work_office_advanced",
+    "module": "office",
+    "description": "【高级可选引擎·默认只读】统一入口调用两个专业开源库：engine='excel' 使用 excel-mcp-server 的 46 个工具（透视表、图表、公式追踪、目标求解、条件格式等）；engine='word' 使用 Office-Word-MCP-Server 的 58 个工具（批注、脚注、保护、锚点替换、表格美化等）。action='list' 或 'schema' 查准确子工具名与参数 Schema；action='call' 才执行。优先用 work_office_inspect / work_office_batch / work_office_compose；只有它们确实覆盖不了时才进入这里。写操作必须 allow_write=true，执行前自动备份目标文件。",
+    "schema": {
+      "properties": {
+        "engine": {
+          "default": "",
+          "title": "Engine",
+          "type": "string",
+          "description": "高级引擎：excel（46 个表格工具）或 word（58 个文档工具）"
+        },
+        "action": {
+          "default": "list",
+          "title": "Action",
+          "type": "string",
+          "description": "list（或 schema）查子工具与参数；call 执行指定子工具"
+        },
+        "tool": {
+          "default": "",
+          "title": "Tool",
+          "type": "string",
+          "description": "action=call 时的子工具名，如 create_pivot_table / trace_formula / get_all_comments"
+        },
+        "args": {
+          "default": "",
+          "title": "Args",
+          "type": "string",
+          "description": "子工具参数 JSON 对象字符串"
+        },
+        "keyword": {
+          "default": "",
+          "title": "Keyword",
+          "type": "string",
+          "description": "检索关键词，中英文均可，按子串匹配"
+        },
+        "allow_write": {
+          "default": false,
+          "title": "Allow Write",
+          "type": "boolean",
+          "description": "是否允许写操作；默认 false，写前自动备份到 02_自动备份区/"
+        },
+        "max_chars": {
+          "default": 24000,
+          "title": "Max Chars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "engine"
+      ],
+      "type": "object",
+      "title": "work_office_advancedArguments"
+    }
+  },
+  {
     "name": "work_office_engines",
     "module": "office",
-    "description": "【只读·引擎体检】真实盘点 mcp_servers/ 下克隆的 Office 与通讯 MCP 项目：不只看文件在不在，还实际 import 入口、数出能加载多少工具，并给出每个仓库对应的可调用桥（或明确说明为什么没接）。用于「克隆的那些 office 项目 / MCP 到底用上了没」「哪个引擎能用」。结果里 ready=true 才代表真的能调；缺源码、缺依赖、空目录都会如实标出，不会拿路径存在冒充可用。",
+    "description": "【只读·引擎体检】真实盘点 mcp_servers/ 下克隆的 Office MCP 项目：不只看文件在不在，还实际 import 入口、数出能加载多少工具，并给出每个仓库对应的可调用桥（或明确说明为什么没接）。用于「克隆的那些 office 项目 / MCP 到底用上了没」「哪个引擎能用」。结果里 ready=true 才代表真的能调；缺源码、缺依赖、空目录都会如实标出，不会拿路径存在冒充可用。",
     "schema": {
       "properties": {
         "action": {
@@ -1657,101 +1546,9 @@
     }
   },
   {
-    "name": "work_excel_mcp",
-    "module": "office",
-    "description": "【接入克隆的 excel-mcp-server（46 个工具）】免装 Office 的工业级 Excel 引擎：内置 260+ 函数计算引擎（read_range 直接算出公式值）、公式溯源与逐步求值（trace_formula）、单变量目标求解（goal_seek）、真数据透视表（create_pivot_table）与切片器（add_slicer）、现代图表（create_chart：柱/线/饼/瀑布/箱线/旭日/树状/漏斗图）与迷你图（add_sparklines）、数据清洗（transform_range：去重/分列/填充、sort_range）、条件格式、数据验证、VBA 只读查看（read_vba）。action='list'（或 'schema'）列工具及完整参数 Schema；action='call' 调用指定 tool + args（JSON 对象字符串，自动兼容 path/file/filename 与相对路径）。写操作需传 allow_write=true，且调用前自动备份到 02_自动备份区/。",
-    "schema": {
-      "properties": {
-        "action": {
-          "default": "list",
-          "title": "Action",
-          "type": "string",
-          "description": "list（或 schema）列出匹配的 Excel 工具与完整参数 Schema；call 调用指定子工具"
-        },
-        "tool": {
-          "default": "",
-          "title": "Tool",
-          "type": "string",
-          "description": "要调用的 excel-mcp-server 子工具名，如 describe_workbook / read_range / trace_formula / goal_seek / create_pivot_table / create_chart"
-        },
-        "args": {
-          "default": "",
-          "title": "Args",
-          "type": "string",
-          "description": "传给子工具的参数 JSON 对象字符串，如 {\"path\":\"2026年11月汇总母表.xlsx\",\"range\":\"A1:G10\"}（自动兼容 path/file 与工作区相对路径）"
-        },
-        "keyword": {
-          "default": "",
-          "title": "Keyword",
-          "type": "string",
-          "description": "检索关键词，中英文均可，按子串匹配"
-        },
-        "allow_write": {
-          "default": false,
-          "title": "Allow Write",
-          "type": "boolean",
-          "description": "是否允许执行写操作（默认 false 只读；传 true 时写前自动备份到 02_自动备份区/）"
-        },
-        "max_chars": {
-          "default": 24000,
-          "title": "Max Chars",
-          "type": "integer"
-        }
-      },
-      "type": "object",
-      "title": "work_excel_mcpArguments"
-    }
-  },
-  {
-    "name": "work_word_mcp",
-    "module": "office",
-    "description": "【接入克隆的 Office-Word-MCP-Server（58 个工具）】Word 深度结构化编辑与审阅引擎：多文档合并（merge_documents）、文档结构/XML 检视、提取全部批注（get_all_comments / get_comments_by_author）、上下标脚注/尾注插入与校验（add_footnote_robust / convert_footnotes_to_endnotes / validate_document_footnotes）、按文本锚点插入或替换段落区块（insert_header_near_text / replace_paragraph_block_below_header / replace_block_between_manual_anchors）、表格隔行变色与列宽自适应（apply_table_alternating_rows / highlight_table_header / auto_fit_table_columns）、文档密码保护与限制编辑（protect_document / add_restricted_editing / verify_document）。action='list'（或 'schema'）列工具及完整参数 Schema；action='call' 调用指定 tool + args（JSON 对象字符串，自动兼容 filename/file/path 与相对路径）。写操作需传 allow_write=true，且调用前自动备份到 02_自动备份区/。",
-    "schema": {
-      "properties": {
-        "action": {
-          "default": "list",
-          "title": "Action",
-          "type": "string",
-          "description": "list（或 schema）列出匹配的 Word 工具与完整参数 Schema；call 调用指定子工具"
-        },
-        "tool": {
-          "default": "",
-          "title": "Tool",
-          "type": "string",
-          "description": "要调用的 Office-Word-MCP-Server 子工具名，如 get_document_info / get_all_comments / merge_documents / add_footnote_robust / replace_paragraph_block_below_header"
-        },
-        "args": {
-          "default": "",
-          "title": "Args",
-          "type": "string",
-          "description": "传给子工具的参数 JSON 对象字符串，如 {\"filename\":\"报告.docx\"}（自动兼容 filename/file/path 与工作区相对路径）"
-        },
-        "keyword": {
-          "default": "",
-          "title": "Keyword",
-          "type": "string",
-          "description": "检索关键词，中英文均可，按子串匹配"
-        },
-        "allow_write": {
-          "default": false,
-          "title": "Allow Write",
-          "type": "boolean",
-          "description": "是否允许执行写操作（默认 false 只读；传 true 时写前自动备份到 02_自动备份区/）"
-        },
-        "max_chars": {
-          "default": 24000,
-          "title": "Max Chars",
-          "type": "integer"
-        }
-      },
-      "type": "object",
-      "title": "work_word_mcpArguments"
-    }
-  },
-  {
     "name": "work_office_compose",
     "module": "office",
-    "description": "【写文件】通用富文档(.docx)与演示文稿(.pptx)一键生成引擎（底层直驱 OfficeCLI 原生富元素）：将 Markdown 文本或 .md 文件（支持多级标题、列表、代码块、GFM 表格、```mermaid 流程图、$$数学公式$$）一键转化为原生可编辑的 Word 文档(.docx)或 PowerPoint 演示文稿(.pptx)！docx 支持可选自动插入目录（toc=true）、水印（watermark='...'）及排版风格（preset='modern'|'academic'|'memo'|'gbt9704'）；pptx 自动按 # / ## 标题切分幻灯片并排入要点、表格与 Mermaid 流程图。",
+    "description": "【写文件】通用富文档(.docx)与演示文稿(.pptx)一键生成引擎（底层直驱 OfficeCLI 原生富元素）：将 Markdown 文本或 .md 文件（支持多级标题、列表、代码块、GFM 表格、```mermaid 流程图、$$数学公式$$）一键转化为原生可编辑的 Word 文档(.docx)或 PowerPoint 演示文稿(.pptx)！docx 支持自动目录、水印及 preset='modern'|'academic'|'memo'|'gbt9704'；输入 .docx 时直接按 preset 重排现有文档。pptx 自动按标题切分幻灯片并排入要点与 Mermaid 流程图。",
     "schema": {
       "properties": {
         "content_or_path": {
@@ -1806,6 +1603,24 @@
           "title": "Output Path",
           "type": "string",
           "description": "输出文件路径，留空自动生成到产物目录"
+        },
+        "doc_type": {
+          "default": "报告",
+          "title": "Doc Type",
+          "type": "string",
+          "description": "文种：通知 / 报告 / 请示 / 批复 / 函 / 会议纪要"
+        },
+        "header_unit": {
+          "default": "",
+          "title": "Header Unit",
+          "type": "string",
+          "description": "红头单位全称，如「某某市人民政府办公室」"
+        },
+        "doc_number": {
+          "default": "",
+          "title": "Doc Number",
+          "type": "string",
+          "description": "发文字号，如 某政办发〔2026〕12号"
         }
       },
       "required": [

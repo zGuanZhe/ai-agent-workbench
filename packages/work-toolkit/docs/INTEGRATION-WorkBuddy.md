@@ -1,24 +1,24 @@
 # WorkBuddy 接入说明（work-toolkit）
 
-## 零、日常使用：一个总 Skill，一条 `/work`
+## 零、日常使用：独立模块 Skill + 可选 `/work`
 
-装好并重载 WorkBuddy 会话后，用户只需 `/work <一句话需求>`。总 Skill 通过 `scripts/work.py`
-在本地直接调用下面 43 个工具，**不打开网页、不依赖 MCP 信任**也能跑完整个流程。
+装好并重载会话后，可直接使用 `work-office`、`work-comms`、`work-memory` 三个独立 Skill 与对应 MCP。
+`/work` 只用于跨模块组合，不再是唯一入口；不打开网页、不依赖 MCP 信任也能通过 `scripts/work.py` 调用。
 命令行形式（由 agent 使用，用户不用看）：
 
 ```bash
-python "<项目根目录>/scripts/work.py" ask "<用户原话>"   # 第一步，不可跳过
+python "<项目根目录>/scripts/work.py" office "<模块内自然语言>"  # Office 单模块
 python "<项目根目录>/scripts/work.py" call work_status "{}"
-python "<项目根目录>/scripts/work.py" tools <工具名>     # 不确定参数时查
+python "<项目根目录>/scripts/work.py" tools <工具名>             # 不确定参数时查
+python "<项目根目录>/scripts/work.py" ask "<原话>"               # 仅在 /work 跨模块组合时使用
 ```
 
-`ask` 读 `web/intents.json`，把口语翻成确定的 `plan`（工具名 + 参数 + 是否写文件 +
-是否要先确认）。这一步是「智能体有时不调工具 / 调错工具 / 宣称工具里没有的能力」的机制性防线：
-智能体按 plan 执行即可，不需要读文档做选择题；用户说「别写文件」时 plan 会自动过滤写产物工具。
+`ask` 是 `/work` 组合入口的路由器；单模块 Skill 应直接调用 MCP。它读取 `web/intents.json`，
+把口语翻成确定的 `plan`，并在只读请求中过滤写产物工具。
 `tools/check_intents.py` 校验意图表里引用的工具名是否都真实存在，避免出现「功能触发不了」。
 
-`install_skills.py` 会把仓库里的总 Skill 同步到 `~/.workbuddy/skills/`，并清理已合并进 `/work` 的旧命令。
-下面的 MCP / 网页架构是**可选增强与可视化展示**，不是 `/work` 的前提。
+`install_skills.py` 会把独立模块 Skill 同步到 `~/.workbuddy/skills/` 与 `~/.codex/skills/`。
+网页只做装配与可视化，不是模块调用前提。
 
 ---
 
@@ -30,12 +30,12 @@ python "<项目根目录>/scripts/work.py" tools <工具名>     # 不确定参�
 WorkBuddy / Claude Code / Codex
         │  MCP stdio (JSON-RPC)
         ▼
-mcp/work_toolkit_server.py          ← 合体入口：挂载 43 个工具（实现分在 work_mods/ 的
+mcp/work_toolkit_server.py          ← 合体入口：挂载 41 个公共工具（实现分在 work_mods/ 的
                                         comms.py 通讯 / office.py Office / memory.py 记忆 / other.py 其他）
         ├── python_workers/wx_helper.py            微信收件归档 + 未交核对 + 催办
         ├── python_workers/merge_docx_tables.py    Word/Excel 跨表合并 + 勾稽校验
         ├── python_workers/gbt9704_formatter.py    GB/T 9704-2012 公文排版
-        └── bin/officecli.exe                      OfficeCLI v1.0.160（validate/view/get/set/batch…）
+        └── bin/officecli.exe                      OfficeCLI v1.0.161（inspect/compose/batch…）
 ```
 
 - 桥接层直接调用本机 Python 与 OfficeCLI，**不依赖 DSH 运行时**，因此 WorkBuddy 原生可用。
@@ -72,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File "scripts\register-workbuddy-mcp.ps1"
 
 脚本会自动找一个装好依赖的 Python，并把 `work-toolkit` 合并写进 `%USERPROFILE%\.workbuddy\mcp.json`（保留已有条目）。
 
-## 三、43 个工具（通讯 19 / Office 15 / 记忆 3 / 其他 2）
+## 三、41 个公共工具（通讯 23 / Office 12 / 记忆 4 / 其他 2）
 
 | 工具 | 说明 |
 | --- | --- |
@@ -97,18 +97,18 @@ powershell -ExecutionPolicy Bypass -File "scripts\register-workbuddy-mcp.ps1"
 | `work_wecom_files` | **【只读】** 企微收到的文件，含是否已下载到本地（`on_disk`） |
 | `work_wecom_harvest` | **【写文件】** 企微文件按时间窗/群/扩展名复制到 `01_企业微信收回原件/`，`{chat}` 前缀、按内容去重，默认 `dry_run=true` |
 | `work_comms_overview` | **【只读】** 通讯总览：微信 + 企业微信两条通道能不能读、各自状态，以及两边会话合成的合并时间线（每行标出通道） |
+| `work_office_inspect` | **【只读】** text / outline / stats / issues / annotated / forms / comments / screenshot / html / svg / schema / skills；PDF 不是检视模式 |
+| `work_office_compose` | **【写文件】** Markdown、表格、Mermaid、公式生成 DOCX/PPTX；也可按预设重排现有 DOCX |
+| `work_office_batch` | **【写文件】** 通用编辑入口：批量 DOM 操作、`create=true` 创建后写入、自动备份与 validate |
 | `work_office_consolidate` | 跨表合并 + 漏填/手机号/勾稽校验 + OpenXML 验证 |
-| `work_office_format_gbt9704` | 一键生成 GB/T 9704 标准公文 .docx |
-| `work_office_to_pdf` | **【写文件】** 走本机 Word/Excel/PPT COM 导 PDF，版面与「另存为」一致，回报页数与体积；`engine=auto/ms/wps` |
-| `work_office_create` | **【写文件】** `create` 建空白 docx/xlsx/pptx，带 Word/Excel 默认样式；同名默认拒绝，`force` 才覆盖 |
-| `work_office_batch` | **【写文件】** `batch --input` 一次执行多条操作，只开关文件一次；失败给属性名/路径/类型三类原因 |
-| `work_office_merge` | **【写文件】** 模板 `{{key}}` + JSON 数据 → 新文档；输出扩展名须与模板一致 |
-| `work_office_import` | **【写文件】** CSV/TSV 导入 xlsx 指定工作表，支持起始单元格、表头筛选冻结、分隔符与小数点声明 |
-| `work_office_schema` | **【只读】** `help <format> [verb] [element]` schema 参考，写 `--prop` 前先查 |
-| `work_office_com` | **【按动作】** MS Office / WPS COM：`apps` / `active` / `info` / `export_pdf` / `recalc` / `refresh_fields` / `replace` / `read_cells` / `set_cells` / **`run_python`**（注入 Officer 执行 Python，优先接管已开着的窗口） |
-| `work_office_watch` | **【起本地预览】** OfficeCLI `watch`：`start` / `status` / `stop` / `mark` / `unmark` / `marks` / `goto`，改动自动刷新到网页 |
-| `work_officecli_run` | OfficeCLI 单命令透传（validate/get/query/set/add/batch/dump/raw-set/save/open/close…） |
-| `work_office_inspect` | text / outline / stats / issues / annotated 检视 |
+| `work_office_merge` | **【写文件】** 模板 `{{key}}` + JSON/CSV/XLSX 数据生成单份或批量文档 |
+| `work_office_import` | **【写文件】** CSV/TSV 导入 XLSX；目标不存在时自动创建，已存在时先备份 |
+| `work_office_diff` | **【只读/可选写报告】** DOCX 段落与表格差异，或 XLSX 单元格/公式/数值差异 |
+| `work_office_join_docx` | **【写文件】** 多份 Word 合并，保留样式与表格，可插分页/标题 |
+| `work_office_to_pdf` | **【写文件】** 本机 Office/WPS COM 精准导 PDF；OfficeCLI 本身不支持 PDF 导出 |
+| `work_office_com` | **【按动作】** COM：apps / active / info / export_pdf / recalc / refresh_fields / replace / read_cells / set_cells / run_python |
+| `work_office_advanced` | **【高级可选·默认只读】** Excel 46 工具 / Word 58 工具统一入口；先 list/schema，再 call；写操作需 allow_write=true |
+| `work_office_engines` | **【只读】** 真实加载并体检 OfficeCLI、Excel MCP、Word MCP 与 COM |
 | `work_backup_file` | 改动前备份到 `02_自动备份区/` |
 | `work_exp` | **【任务经验文档库】** `list` 列目录 / `get` 取整篇原文 / `save` 显式存 / `template` 空白骨架 / `export` 合集。一任务一 md，人工按需复制粘贴；**不检索、不打分、不自动召回、不自动写** |
 | `work_ledger` | 材料流水：`summary` / `departments` / `missing` / `history` / `batches` / `state` / `record`；sha256 去重，`seen_count` 记扫到几次 |
@@ -131,7 +131,7 @@ powershell -ExecutionPolicy Bypass -File "scripts\register-workbuddy-mcp.ps1"
 | `work_wechat_files(mode='pull')` | ✅ 6 份筛选复制成功，sha256 去重拦下 1 份重复 pptx；名单核对得出已交 2 / 未交 1 并生成话术 |
 | `work_wechat_files(mode='harvest')` | ✅ 走 `local_inbox` 通道：2026-11 起匹配 12 份、复制 10 份、sha256 去重 2 份 |
 | `work_office_consolidate` | ✅ 3 份申报表合并，2 条异常（手机号 10 位、勾稽差额 +1.5 万元），OfficeCLI 校验通过 |
-| `work_office_format_gbt9704` | ✅ 内联 Markdown 直接生成通知，OpenXML 校验通过 |
+| `work_office_compose` | ✅ 内联 Markdown 生成通知并按预设排版，OpenXML 校验通过 |
 | `work_officecli_run` | ✅ validate 通过；`set /body/p[5] --prop bold=true` 写操作生效 |
 | `work_office_inspect` | ✅ xlsx 单元格文本与 docx 段落提取正常 |
 | `work_wechat_remind` | ✅ dry-run 生成话术并写入 `06_运行状态/待发催办通知.md` |
@@ -150,7 +150,7 @@ powershell -ExecutionPolicy Bypass -File "scripts\register-workbuddy-mcp.ps1"
 | 微信群 @ 催办真实发送 | ⚠️ 只读保护 | 为避免桌面焦点抢占与风控，仅生成催办话术并写入 `待发催办通知.md` 供人工粘贴发送 |
 | **本机 Office / WPS（COM）** | ✅ **可用** | `work_office_com` 直连 6 个组件（Word/Excel/PPT × MS/WPS）：导出 PDF、重算、刷新域、读写单元格、替换、拿页数字数 |
 | OfficeMCP 的 RunPython 等价能力 | ✅ 已内置 | `work_office_com action="run_python"` 注入 `Officer`（Word/Excel/PPT × MS/WPS），执行任意 Python 操控已打开的窗口；不引入常驻 MCP 进程，也不装上游包 |
-| OfficeCLI 的实时预览 | ✅ 已接入 | `work_office_watch` 起本地预览页，改动自动刷新，可 mark / goto 定位元素 |
+| OfficeCLI 的 PDF 导出 | ❌ 不支持 | PDF 必须走 `work_office_to_pdf` 或 `work_office_com(action="export_pdf")` |
 
 ### 结果口径（避免「报数字」被读成「出故障」）
 
@@ -212,7 +212,7 @@ powershell -ExecutionPolicy Bypass -File "scripts\register-workbuddy-mcp.ps1"
 | | 旧通道 | 桌面读消息 | `work_wechat_messages` | 窗口不可用时降级读本地库 |
 | Office | 汇总与核验 | 汇总母表 | `work_office_consolidate` | 写文件 |
 | | | 文档体检 | `work_office_inspect` | 只读 |
-| | 公文成稿 | 国标排版 | `work_office_format_gbt9704` | 写文件 |
+| | 公文成稿 | 国标排版 | `work_office_compose(preset="gbt9704")` | 写文件 |
 | | | 导出 PDF | `work_office_to_pdf` | 写文件 |
 | | 引擎 | OfficeCLI 直调 | `work_officecli_run` | 视命令而定 |
 | 记忆 | 留下记录 | 材料台账 | `work_ledger` | 只读（可 record） |
@@ -230,7 +230,7 @@ powershell -ExecutionPolicy Bypass -File "scripts\register-workbuddy-mcp.ps1"
 （早期数据区紧跟在按钮下面，会话一多就把说明整个挤出首屏，点开节点像是打开了一个列表页。）
 
 需要预选的节点会先给一份可选列表，点一行即选中，`直接调用` 随之解锁；选中项在「已选」条里可一键取消：
-- 要文件的：文档体检、国标排版、改前备份、导出 PDF、OfficeCLI 直调；
+- 要文件的：文档体检、生成/重排、批量编辑、改前备份、精确导出 PDF；
 - 要会话的：摘录成文、桌面读消息（`browse: pick`，只选会话不展示消息）。
 
 ### 3. 结果渲染
@@ -293,7 +293,7 @@ node --test test/*.test.js
 
 | 项 | 实测值 |
 |---|---|
-| MCP `tools/list` | 43 个工具，全部带中文 description（早期基线为 16 个）；四个入口：合体 39 / 通讯 21 / Office 17 / 记忆 5 |
+| MCP `tools/list` | 41 个公共工具；合体 41 / 通讯 25 / Office 14 / 记忆 6 |
 | `tools/call` | 15 次调用全部 `isError=false` |
 | 密钥链路 | 23/23 库取到密钥，`sync --force` 刷新 4 库、0 失败、约 5.0s |
 | 会话 / 消息 | 24 个会话、单群 400 条可读，群前缀残留 0 条 |
@@ -302,8 +302,8 @@ node --test test/*.test.js
 | 汇总母表 | 扫 5 份、收 3 份、跳过 2 份无关表；异常 12 → 2 条（均为真实差错） |
 | 国标排版 | 页边距 37/35/28/26mm 与文档实测一致；三处字体降级已声明 |
 | 接口越权 | `../..`、`/etc` → 403；不存在目录 → 404 |
-| 前端 | 45 个节点（通讯 19 / Office 16 / 记忆 3 / 其他 4，含 4 个自定义），JS 报错 0 |
-| 工具全量 | `regress.py` 82 条用例覆盖全部 43 个工具（台账 6 个 action、经验 5 个 action），通过 82 / 失败 0 / 约 47s（冷启动首次解密可达 90s）；`--module comms|office|memory|other` 可只验单模块（单模块实测：通讯 38 / Office 42 / 记忆 14 / 其他 6） |
+| 前端 | 四列装配台，41 个公共工具，9 个自定义节点，`node --check` 通过 |
+| 工具全量 | `regress.py` 101 条用例 / 41 个公共工具，通过 101 / 失败 0 / 约 22.7s；支持 `--module comms|office|memory|other` 单模块验收 |
 | 图片解密 | `work_wechat_media` 12/12 张解出，缩略图 210×280 JPEG；单张 `ref` + `prefer=orig` 得 1280×1706 PNG |
 | 图片预览 | 灯箱自动换原图（1280×1706 缩放至 690×920，不溢出 1080p）；`/api/img` 越界 403、非图片 415、>24MB 413 |
 | Office 转 PDF | Word 1 页 196KB / Excel 2 页 64KB，页数由 pypdf 数产物得出（Excel COM 本身不回报） |
@@ -330,7 +330,7 @@ node --test test/*.test.js
 | 挑解释器 | 本机 3 个 Python，只有 3.14.4 装齐 `mcp` / `python-docx` / `openpyxl`，自动选中 |
 | 补装依赖 | 已齐则跳过；缺时只 pip 白名单包，不装 pandas / PyMuPDF（省体积与时间） |
 | 注册 MCP | 写 `~/.workbuddy/mcp.json`，UTF-8 无 BOM，合并保留其他 MCP；解析失败先备份 |
-| 构建网页 | `console.html` 生成成功，43 个工具节点 + 4 个自定义节点（通讯 / Office / 记忆 / 其他 四列） |
+| 构建网页 | `console.html` 生成成功，41 个公共工具 + 9 个自定义节点（通讯 / Office / 记忆 / 其他 四列） |
 | 验收 | `work_status` / `work_exp list` / `work_wechat_probe` 全 ok |
 
 `python tools/doctor.py` 逐项体检：必需项全过、2 项可选未装（pandas / PyMuPDF），
@@ -341,7 +341,7 @@ node --test test/*.test.js
 
 ### 2. 28 工具回归脚本（长期资产）
 
-`python tools/regress.py` → **82 条用例 / 43 个工具登记 / 通过 82 / 失败 0 / 跳过 0 / 约 47 s，冷启动可达 90 s**；
+`python tools/regress.py` → **101 条用例 / 41 个公共工具 / 通过 101 / 失败 0 / 跳过 0 / 约 20 s**；
 `--quick` 只跑与机器无关的 31 条，约 13 s。用例分 `run`（真跑只读或 dry）、
 `guard`（参数校验生效）、`env`（依赖本机微信数据，缺数据标 SKIP 不算失败）三类，
 不拿「报错成功」冒充「功能跑通」。写类工具产物只落系统临时目录并自动清理。
@@ -384,14 +384,14 @@ node --test test/*.test.js
 
 ### 5. 体量与路线
 
-- 网页产物 `web/console.html` **132 KB 单文件**，无外链 / 字体 / 图片，双击即开。
+- 网页产物 `web/console.html` **约 112 KB 单文件**，无外链 / 字体 / 图片，双击即开。
 - 可分发代码与文档（服务端、经验库、网页、工具、脚本、文档，含 `console.html` 与模板两份）合计 **约 560 KB**；
   不含 `bin/officecli.exe`（外部二进制，32 MB）与 `workspace/` 里的本机数据。
 - 经验模块 `experience/library.py` 约 270 行纯标准库（普通 Markdown 文件），另有 doctor / regress / register /
   setup / launch 共 1086 行，同样零第三方依赖。
-- 唯一日常命令 `/work` + 一个总 Skill（`work-office-toolkit`）；另有维护者用的 `work-console-upgrade`。
-  不打开网页、不信任 MCP，也能通过 `scripts/work.py` 本地桥接跑完全部工具。
+- 日常可独立使用 `work-office` / `work-comms` / `work-memory` 三个 Skill 与对应 MCP；`/work` 仅用于跨模块组合。
+  不打开网页、不信任 MCP，也能通过 `scripts/work.py` 本地桥接调用工具。
 
-**Skill 优先，网页只做可视化**：日常入口收敛成 `/work`，用户改功能只碰
+**Skill 优先，网页只做可视化**：模块可单独调用，也可通过 `/work` 组合；用户改功能只碰
 `custom_nodes.json` 或让维护 Skill 改模板；等能力边界与验收基线稳定，再考虑套一层 webview
 小窗（复用同一个 `console.html`），不必重写前端。

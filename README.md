@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](docs/SETUP_GUIDE.md)
-[![MCP Tools: 47](https://img.shields.io/badge/MCP%20Tools-47%2B20-111827.svg)](#五详细功能清单与实现原理)
+[![MCP Tools: 41](https://img.shields.io/badge/MCP%20Tools-41%2B20-111827.svg)](#五详细功能清单与实现原理)
 [![IDEs: 7](https://img.shields.io/badge/IDE%20Targets-7-111827.svg)](#4-instruct-unrestricted-破限控制中枢与-ide-规则编译器)
 [![Models: 18](https://img.shields.io/badge/Benchmark%20Models-18-111827.svg)](#5-modeltrace-attribution-黑盒模型归因与测谎系统)
 
@@ -23,7 +23,7 @@
 | 层级 | 模块 | 本质定位 | 核心能力一句话 | 形态 |
 | :--- | :--- | :--- | :--- | :--- |
 | **能力执行层** | **1. `work-comms`** | 微信 4.x / 企微只读取证引擎 | 内存提钥 + WAL 实时增量 + 图片解密 + 收件核对 + 语音/PDF 多模态协作 | MCP (23+20) · Skill · CLI |
-| **能力执行层** | **2. `work-office`** | 跨引擎文档表格处理中枢 | 跨表汇总核验 + Markdown 生 Word/PPT + 版本对比 + 套打 + 104 开源子工具 | MCP (18+104) · Skill · CLI |
+| **能力执行层** | **2. `work-office`** | 跨引擎文档表格处理中枢 | 12 个公共工具 + 104 个高级子工具：汇总核验、生成与重排、版本对比、套打、精准 PDF | MCP (12+104) · Skill · CLI |
 | **能力执行层** | **3. `work-memory`** | 双轨记忆与装配台 | 轨迹提炼「零探索 SOP」+ Engram 长期记忆 + 台账 + 网页可视化装配台 | MCP (4+2) · Skill · Web `:8765` |
 | **行为规约层** | **4. `instruct-unrestricted`** | 多端 AI IDE 规则编译器 | 原生编译/托管 7 大 IDE 规则，动态组装角色×严格度，消除无效拒答 | Python SDK · CLI · API `:5055` |
 | **模型可信层** | **5. `modeltrace-attribution`** | 黑盒 LLM 指纹与测谎系统 | 18 款官方模型数学指纹归因 + 拦截反代脚本造假（0% 误报 / 100% 拦截） | Python SDK · CLI · API `:5055` |
@@ -108,7 +108,7 @@ python -X utf8 services/core_api_server.py
 | :--- | :--- |
 | [架构解构指南 (`docs/ARCHITECTURE.md`)](docs/ARCHITECTURE.md) | 深入剖析三层五工具本质差异、安全边界与跨模块组合范式 |
 | [详细配置教程 (`docs/SETUP_GUIDE.md`)](docs/SETUP_GUIDE.md) | Codex `config.toml`、WorkBuddy、第三方增强组件与环境变量完整配置 |
-| [全量工具与接口手册 (`docs/TOOLS_REFERENCE.md`)](docs/TOOLS_REFERENCE.md) | 47 MCP 工具 + 20 `wechat_chat` 工具 + CLI + REST API 速查表 |
+| [全量工具与接口手册 (`docs/TOOLS_REFERENCE.md`)](docs/TOOLS_REFERENCE.md) | 41 个公共 MCP 工具 + 20 `wechat_chat` 工具 + CLI + REST API 速查表 |
 
 ---
 
@@ -171,31 +171,29 @@ python -X utf8 services/core_api_server.py
 
 ---
 
-### 2. `work-office` — 跨引擎文档与表格处理中枢（18 主工具 + 104 开源子工具）
+### 2. `work-office` — 跨引擎文档与表格处理中枢（12 个公共工具 + 104 个高级子工具）
 
 #### 实现原理
-- **多后端调度（`mcp/work_mods/office.py`）**：根据任务特性分流至最稳引擎——OpenXML DOM 高速读写走内置 `OfficeCLI v1.0.161`（常驻管道 + `OFFICECLI_RESIDENT_FLUSH=each` 保证落盘即时可见）；高级表格公式/透视走进程内桥接的 `excel-mcp-server`；高级 Word 审阅/XML 走 `Office-Word-MCP-Server`；精准转 PDF 与实时应用操控走 Windows `win32com`/`comtypes`。
-- **安全护栏**：`work_excel_mcp`（通过 `Settings(read_only=True)` 引擎级拦截）与 `work_word_mcp` 默认只放行只读工具，传 `allow_write=true` 时强制先复制备份到 `02_自动备份区/` 再写；`work_office_com` 的 `run_python` 通过 `sys.settrace` 限时中断死循环，超时后按记录的 PID 树强杀残留 `EXCEL.EXE`/`WINWORD.EXE`，实现零僵尸进程残留。
+- **一个入口，按任务分流（`mcp/work_mods/office.py`）**：常规读取、创建、重排和结构化编辑走内置 `OfficeCLI v1.0.161` 常驻管道；透视表、公式追踪、脚注、保护、XML 和锚点编辑按需进入 `excel-mcp-server` / `Office-Word-MCP-Server`；精确 PDF、重算、刷新域和当前打开文档控制走 Windows COM。
+- **一个 Skill + 一个 MCP**：`skills/work-office` 负责 12 个公共工具的路由，`mcp/work_office_server.py` 只公开这 12 个 Office 工具加 2 个模块底座工具。旧的 create/schema/CLI/watch/Excel/Word 直接入口保留实现但不再暴露，避免 Agent 在重叠工具之间反复试探。
+- **写前安全**：`work_office_batch` 对已有文件自动备份并 validate；`work_office_advanced` 默认只读，显式 `allow_write=true` 时才写且先备份。OfficeCLI 本身没有 PDF 导出能力，PDF 只走 `work_office_to_pdf` / COM。
 
 #### 逐工具功能说明
-1. **`work_office_consolidate`**：把文件夹内多份 `.xlsx`/`.csv`/`.docx` 表格批量汇总成母表（支持模板对齐或 `auto_schema=true` 无模板自动对齐），自动算合计并校验漏填、手机号/身份证格式与勾稽差额，输出《异常数据核验单》。
-2. **`work_office_compose`**：把 Markdown（含表格、`$$数学公式$$`、`mermaid` 流程图、代码块）一键编译为现代排版 `.docx` 报告或 `.pptx` 幻灯片（支持预设主题与自动目录）。
-3. **`work_office_format_gbt9704`**：将草稿或普通 Word 一键排为 4 套版式之一：`gbt9704`（党政红头公文）、`modern`（现代商务报告）、`academic`（学术三线表）、`memo`（简洁备忘录）。
-4. **`work_office_diff`**：对比两版 `.docx` 的段落/表格增删改，或对比两张 `.xlsx`（可指定主键列对齐行）的数值涨跌与公式修改，可选输出 Markdown 差异报告。
-5. **`work_office_join_docx`**：把多份独立 `.docx` 合并为一份完整 Word，保留原有样式与表格，自动插分页符与分节标题。
-6. **`work_office_inspect`**：免打开软件透视文档——按区域读 Excel（`cell_range`）、抽结构大纲（`outline`）、统计字数字体（`stats`）、查未求值公式/格式问题（`issues`）、读表单（`forms`），或将每页**渲染成高清 PNG 截图**（`screenshot`）。
-7. **`work_office_create`**：从零创建空白 `.docx` / `.xlsx` / `.pptx` 骨架文件，供后续批量写入。
-8. **`work_office_batch`**：传入 JSON 操作序列，一次开关文件批量完成多处内容修改，避免中间态损毁。
-9. **`work_office_merge`**：模板批量套打——模板写 `{{key}}`，传入 JSON 对象/数组或 `.csv`/`.xlsx` 名单，一次批量生成 N 份合同/通知/证书。
-10. **`work_office_import`**：把 `.csv`/`.tsv` 数据导入 `.xlsx` 指定工作表，自动开启筛选并冻结首行。
-11. **`work_office_to_pdf`**：通过本机 Office/WPS COM 将 Word/Excel/PPT 单文件或整目录精准转 PDF。
-12. **`work_office_com`**：直连操控本机正在运行的 Office/WPS（查已装应用 `apps`、看当前打开文档 `active`、读页数字数 `info`、导 PDF `export_pdf`、执行受控 `run_python` 沙箱）。
-13. **`work_office_watch`**：起本地浏览器实时预览页（端口 `26315`），AI 修改文档后自动刷新并在网页高亮定位。
-14. **`work_officecli_run`**：直接执行单条 `officecli.exe` 原生命令（`validate`/`view`/`get`/`set` 等）。
-15. **`work_office_schema`**：查询 `.docx`/`.xlsx`/`.pptx` 支持的元素与属性名规范，写批处理前精准查字典。
-16. **`work_office_engines`**：逐个真实加载并体检 `excel-mcp-server`、`Office-Word-MCP-Server`、`OfficeMCP`、`officecli.exe` 与 `wechat-chat-mcp` 的真实就绪状态。
-17. **`work_excel_mcp`（桥接 46 个开源 Excel 工具）**：免装 Excel 直接运行 260+ 函数引擎求值、公式溯源（`trace_formula`）、单变量目标求解（`goal_seek`）、真数据透视表与切片器、图表、条件格式、数据验证与 VBA 只读查看。
-18. **`work_word_mcp`（桥接 58 个开源 Word 工具）**：深度审阅与结构化编辑——批量提取/按作者筛批注、稳健插脚注尾注、文档加密保护、按锚点插入段落表格、底层 XML 检视与多文档合并。
+| 工具名 | 具体作用 |
+| :--- | :--- |
+| `work_office_inspect` | 只读看文本、Excel 区域、结构大纲、字数字体、格式/公式问题、批注、表单、DOM 路径，并可截图或导出 HTML/SVG；也可查 OfficeCLI schema 和内置构建指南。 |
+| `work_office_compose` | 把 Markdown（含表格、Mermaid、LaTeX）生成 DOCX/PPTX，或把现有 DOCX 按现代、学术、备忘录、GB/T 9704 预设重排。 |
+| `work_office_batch` | 通用编辑：一次提交多条添加、修改、删除、移动操作；支持创建后立即写入，自动备份和校验，适合长文档和复杂表格的多处修改。 |
+| `work_office_consolidate` | 把多份 XLSX/CSV/DOCX 表合并为母表，自动对齐表头、计算合计并检查漏填、格式问题和勾稽差额。 |
+| `work_office_merge` | 用 Word 模板和 JSON/CSV/XLSX 数据生成单份或批量文档，适合通知、合同、证书和固定表单。 |
+| `work_office_import` | 把 CSV/TSV 导入 Excel；目标工作簿不存在会自动创建，已存在会先备份。 |
+| `work_office_diff` | 对比两版 DOCX 的段落/表格，或两版 XLSX 的单元格、公式和数值变化，可按主键对齐并导出报告。 |
+| `work_office_join_docx` | 把目录或多份 Word 合并成一份，保留样式和表格，可自动分页和加文件标题。 |
+| `work_office_to_pdf` | 通过本机 Office/WPS 精准导出 PDF，支持单文件、目录和指定工作表；自动选择可用应用。 |
+| `work_office_com` | 直连本机 Office/WPS：查看已安装应用和当前文件、页数字数、重算公式、刷新域、查找替换、单元格读写及受控 Python 实时操作。 |
+| `work_office_advanced` | 常规路径覆盖不了时进入：Excel 46 个工具（透视表、图表、条件格式、公式追踪、目标求解）或 Word 58 个工具（批注、脚注、保护、XML、锚点编辑）。默认只读。 |
+| `work_office_engines` | 真实加载并体检各 Office 引擎，返回 ready、工具数和调用桥；路径存在不等于可用。 |
+
 
 ---
 
@@ -213,7 +211,7 @@ python -X utf8 services/core_api_server.py
 4. **`work_backup_file`（写前安全备份）**：一键把任意本机文件带时间戳复制到 `02_自动备份区/`，绝不改动源文件。
 5. **`work_status`**：全局状态快照——各模块引擎就绪度、工作区目录清单及最近一次收件/汇总/排版结果（支持 `reset_demo_fixtures=true` 重置演示数据）。
 6. **`work_modules`**：列出 `comms` / `office` / `memory` / `other` 四个模块的版本、负责范围与工具映射。
-7. **Codex 风格本地装配台（`web/serve.py` `:8765`）**：在网页浏览 47 个工具入参说明、可视化记忆关系图谱与经验列表，并用开关实时启用/停用 `~/.codex/config.toml` 中的各模块 MCP 与 Skill。
+7. **Codex 风格本地装配台（`web/serve.py` `:8765`）**：在网页浏览 41 个公共工具入参说明、可视化记忆关系图谱与经验列表，并用开关实时启用/停用 `~/.codex/config.toml` 中的各模块 MCP 与 Skill。
 
 ---
 

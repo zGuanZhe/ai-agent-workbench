@@ -55,32 +55,38 @@
 
 ---
 
-## 二、`work-office`（文档与表格模块 · 18 主工具 + 104 开源子工具）
+## 二、`work-office`（文档与表格模块 · 12 个公共 MCP 工具 + 104 个高级子工具）
 
 入口：`packages/work-toolkit/mcp/work_office_server.py`
 
-### 2.1 主工具清单
+Skill：`packages/work-toolkit/skills/work-office/SKILL.md`。Office 模块可独立使用，不要求经过 `/work`。
+
+### 2.1 公共工具清单
 
 | 工具名 | 核心功能与适用场景 |
 | :--- | :--- |
-| `work_office_engines` | **引擎真实体检**：实际加载并探测 `excel-mcp-server`（46 工具）、`Office-Word-MCP-Server`（58 工具）、`OfficeMCP`、`bin/officecli.exe` 与 `wechat-chat-mcp` 的真实就绪状态（绝不拿路径存在冒充可用）。 |
-| `work_office_consolidate` | **跨表汇总与核验**：批量合并 `.xlsx`/`.csv`/`.tsv`/`.docx` 表格。支持指定母表模板，也支持 `auto_schema=true` 自动归纳表头；自动检查漏填、手机号/身份证格式错误与合计数勾稽差额，输出汇总表与《异常数据核验单》。 |
-| `work_office_compose` | **现代富文档 & PPT 一键合成**：把 Markdown（多级标题、列表、代码块、GFM 表格、`$$数学公式$$`、`mermaid` 流程图）通过 OfficeCLI 原生元素编译为 `.docx` 或 `.pptx`（支持 `modern` / `report` / `academic` 预设与自动目录 `toc=true`）。 |
-| `work_office_format_gbt9704` | **一键排版（4 套版式）**：支持 `gbt9704`（党政机关公文红头版式）、`modern`（现代商务深蓝表头）、`academic`（学术三线表）与 `memo`（简洁备忘录）。 |
-| `work_office_diff` | **新旧版本对比**：支持 `.docx` 对比段落与表格单元格增删改，以及 `.xlsx` 按主键列 `key_column` 对齐对比数值增减与公式变动；可选输出 Markdown 差异报告。 |
-| `work_office_join_docx` | **多份 Word 结构化拼接**：合并多份 `.docx` 为一份完整文档，保留原有样式与表格，可选插分页符与分节标题。 |
-| `work_office_inspect` | **全维文档体检与视觉渲染**：支持 `mode=text`（可传 `cell_range="Sheet1!A1:F20"`）、`outline`（大纲）、`stats`（字数/字体分布）、`issues`（未求值公式/断页检查）、`forms`（表单）及 **`screenshot`（高清页面截图渲染 PNG）**。 |
-| `work_office_create` | 新建空白 `.docx` / `.xlsx` / `.pptx` 骨架（`force=true` 才允许覆盖）。 |
-| `work_office_batch` | 单次开关文件批量执行多条 OfficeCLI DOM 修改指令（`set`/`add`/`remove`/`query`），效率高且无中间态污染。 |
-| `work_office_merge` | **模板单份/批量套打**：支持 `{{key}}` 占位符模板 + 单个 JSON 对象、JSON 数组或 `.csv`/`.xlsx` 数据源，一次生成 N 份合同/通知/证书。 |
-| `work_office_import` | 将 CSV/TSV 数据导入 `.xlsx` 指定工作表，自动开启筛选与冻结首行。 |
-| `work_office_to_pdf` | 基于本机 MS Office / WPS COM 将 Word / Excel / PPT 单文件或整目录精准转为 PDF。 |
-| `work_office_com` | 直连本机 Office/WPS COM：`apps`、`active`、`info`、`export_pdf`、`run_python`（带超时保护与自动清理残留进程）。 |
-| `work_office_watch` | 在本地启动实时浏览器预览（`start`/`stop`/`mark`/`goto`，默认端口 `26315`），配合批量写入边改边看。 |
-| `work_officecli_run` | 直接执行单条 `officecli.exe` 原生命令（`validate`/`view`/`get`/`set` 等）。 |
-| `work_office_schema` | 查询 OfficeCLI 元素与属性规范（写 `work_office_batch` 前可查精确属性名）。 |
-| `work_excel_mcp` | **高级 Excel 46 工具桥**：`action=list\|schema\|call`，默认只读；覆盖 260+ 公式计算、公式溯源、目标求解（`goal_seek`）、数据透视表、切片器、图表、条件格式与 VBA 只读查看。写操作需显式 `allow_write=true` 并自动备份。 |
-| `work_word_mcp` | **高级 Word 58 工具桥**：`action=list\|schema\|call`，默认只读放行查询类前缀；覆盖多文档合并、批注提取、脚注尾注、文档保护、按锚点插段插表与 XML 检视。写操作需显式 `allow_write=true` 并自动备份。 |
+| `work_office_inspect` | **只读检视与渲染**：`text`（XLSX 可传 `cell_range`）、`outline`、`stats`、`issues`、`annotated`、`forms`、`comments`、`screenshot`、`html`、`svg`、`schema`、`skills`。属性不确定时用 `mode="schema"`；PDF 不是检视模式。 |
+| `work_office_compose` | **生成或重排**：把 Markdown、GFM 表格、Mermaid、LaTeX 公式生成 DOCX/PPTX；也可把现有 DOCX 按 `modern` / `academic` / `memo` / `gbt9704` 预设重排。 |
+| `work_office_batch` | **通用编辑入口**：一次提交多条 OfficeCLI ops；`create=true` 可创建后立即写入；默认自动备份并 validate。 |
+| `work_office_consolidate` | **跨表汇总与核验**：合并 XLSX/CSV/TSV/DOCX 表格，支持模板或 `auto_schema=true`，输出汇总表与异常数据核验单。 |
+| `work_office_merge` | **模板套打**：`{{key}}` 模板 + JSON 对象/数组、CSV 或 XLSX，生成单份或批量文档。 |
+| `work_office_import` | **CSV/TSV → XLSX**：目标不存在时自动创建，已存在时先备份，可指定工作表、起始单元格和表头。 |
+| `work_office_diff` | **版本对比**：DOCX 比较段落与表格，XLSX 比较单元格、公式、数值和可选主键对齐；可导出 Markdown 报告。 |
+| `work_office_join_docx` | **Word 合并**：按目录或明确文件顺序拼接 DOCX，保留段落样式和表格，可插分页/标题。 |
+| `work_office_to_pdf` | **精准 PDF**：走本机 MS Office/WPS COM；支持单文件、整目录和指定工作表，`engine=auto` 自动选应用。OfficeCLI 本身不支持 PDF 导出。 |
+| `work_office_com` | **实时应用控制**：`apps`、`active`、`info`、`export_pdf`、`recalc`、`refresh_fields`、`replace`、`read_cells`、`set_cells`、`run_python`。 |
+| `work_office_advanced` | **高级引擎统一入口**：`engine="excel"` 接 46 个 Excel 工具，`engine="word"` 接 58 个 Word 工具；`action=list/schema` 查准确子工具，`action=call` 执行。默认只读，写操作需 `allow_write=true` 并自动备份。 |
+| `work_office_engines` | **引擎体检**：实际加载 OfficeCLI、excel-mcp-server、Office-Word-MCP-Server 和 COM，返回 `ready`、工具数与可调用桥；不跨模块检查微信。 |
+
+### 2.2 内部兼容实现
+
+以下实现仍保留并参与回归，但不会出现在 `tools/list`：
+
+`work_office_format_gbt9704`、`work_officecli_run`、`work_office_watch`、`work_office_schema`、
+`work_office_create`、`work_excel_mcp`、`work_word_mcp`。
+
+映射关系：schema → `inspect(mode="schema")`；create → `batch(create=true)`；format → `compose`；
+Excel/Word 桥 → `advanced`；OfficeCLI 通用命令 → `batch` 或对应的专用工具。
 
 ---
 

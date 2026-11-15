@@ -81,74 +81,63 @@ CASES = [
     ("work_wechat_files",       {"mode": "harvest", "since": "2099-01-01"},     "env",   "一条龙 0 匹配"),
     ("work_wechat_files",       {"mode": "bogus"},                              "guard", "收件 mode 参数校验"),
     ("work_wechat_sync",        {"force": False},                               "env",   "解密副本（不强制）"),
-    # 下面这些是写类工具：用参数校验/空输入覆盖，不制造测试文件
+    # 写保护、参数校验与已删除的 inspect(pdf) 路径
     ("work_backup_file",        {"file": ""},                                   "guard", "备份参数校验"),
     ("work_office_to_pdf",      {},                                             "guard", "转 PDF 参数校验"),
-    ("work_officecli_run",      {"command": "validate", "file": ""},             "guard", "OfficeCLI 参数校验"),
     ("work_office_consolidate", {"source_dir": "__不存在的回归目录__"},            "guard", "汇总参数校验"),
-    ("work_office_format_gbt9704", {},                                          "run",   "公文排版（产物落系统临时目录）"),
     ("work_office_inspect",     {"file": "", "mode": "text"},                    "guard", "检视参数校验"),
-    # 新增的 Office 能力：真的建、真的写、真的合并、真的转 PDF（全落沙箱）
-    ("work_office_schema",      {"format": "docx", "element": "paragraph"},      "ok",    "schema 参考可读"),
-    ("work_office_create",      {"file": ""},                                    "guard", "新建文档参数校验"),
+    ("work_office_inspect",     {"mode": "pdf"},                                "guard", "inspect 不再把 PDF 冒充渲染模式"),
+    # 公共 Office 工具面：schema、创建、写入、导入、合成、重排、合并、差异与截图
+    ("work_office_inspect",     {"mode": "schema", "format": "docx", "element": "paragraph"}, "ok", "schema 并入 inspect"),
     ("work_office_batch",       {"file": "", "ops": ""},                         "guard", "批量操作参数校验"),
     ("work_office_merge",       {"template": "", "output": "", "data": ""},        "guard", "模板合并参数校验"),
     ("work_office_import",      {"file": ""},                                    "guard", "CSV 导入参数校验"),
     ("work_office_com",         {"action": "bogus"},                             "guard", "COM 动作校验"),
-    ("work_office_create",      {"file": "{sandbox}/回归新建.xlsx"},              "ok",    "新建空白表（落沙箱）"),
-    ("work_office_import",      {"file": "{sandbox}/回归新建.xlsx", "sheet": "Sheet1",
-                                 "data": "姓名,单位\n甲,乙局", "header": True},    "ok",    "CSV 导入（落沙箱）"),
-    ("work_office_create",      {"file": "{sandbox}/回归模板.docx"},              "ok",    "新建空白文档（落沙箱）"),
-    ("work_office_batch",       {"file": "{sandbox}/回归模板.docx",
+    ("work_office_batch",       {"file": "{sandbox}/回归自动创建.xlsx", "ops": "", "create": True},
+                                                                                "ok",    "batch 创建空白表（落沙箱）"),
+    ("work_office_import",      {"file": "{sandbox}/回归自动导入.xlsx", "sheet": "Sheet1",
+                                 "data": "姓名,单位\n甲,乙局", "header": True},   "ok",    "CSV 导入自动创建目标 xlsx"),
+    ("work_office_batch",       {"file": "{sandbox}/回归模板.docx", "create": True,
                                  "ops": '[{"command":"add","parent":"/body","type":"paragraph",'
-                                        '"props":{"text":"{{单位}}：回归"}}]'},    "ok",    "批量写入（落沙箱）"),
+                                        '"props":{"text":"{{单位}}：回归"}}]'},   "ok",    "batch 一次创建并写入"),
+    ("work_office_inspect",     {"file": "{sandbox}/回归模板.docx", "mode": "text"}, "ok", "回读 batch 写入内容"),
     ("work_office_merge",       {"template": "{sandbox}/回归模板.docx",
                                  "output": "{sandbox}/回归合并.docx",
                                  "data": '{"单位":"甲局"}'},                        "ok",    "模板合并（落沙箱）"),
+    ("work_office_compose",     {"content_or_path": "# 回归富文档\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n$$E=mc^2$$",
+                                 "output": "{sandbox}/回归合成.docx",
+                                 "preset": "modern", "toc": True},                 "ok",   "通用富文档合成（表格+公式+目录）"),
+    ("work_office_compose",     {"content_or_path": "{sandbox}/回归合并.docx",
+                                 "output": "{sandbox}/回归重排.docx", "preset": "modern"},
+                                                                                "ok",    "compose 可直接重排已有 docx"),
+    ("work_office_diff",        {"file_a": "{sandbox}/回归模板.docx",
+                                 "file_b": "{sandbox}/回归合并.docx"},             "ok",    "Word 文档版本差异对比（只读）"),
+    ("work_office_join_docx",   {"files": "{sandbox}/回归模板.docx,{sandbox}/回归合成.docx",
+                                 "output": "{sandbox}/回归汇编.docx"},             "ok",    "多份 Word 文档拼接合并"),
+    ("work_office_inspect",     {"file": "{sandbox}/回归合并.docx", "mode": "screenshot",
+                                 "output": "{sandbox}/回归截图.png"},              "ok",    "OfficeCLI 高清截图渲染"),
+    # 一个公共高级入口覆盖 Excel/Word，默认只读，写操作必须显式授权
+    ("work_office_advanced",    {"engine": "excel", "action": "list", "keyword": "pivot"}, "ok", "高级 Excel：列透视相关工具"),
+    ("work_office_advanced",    {"engine": "excel", "action": "bogus"},             "guard", "高级 Excel：action 校验"),
+    ("work_office_advanced",    {"engine": "excel", "action": "call", "tool": "create_workbook"}, "guard", "高级 Excel：写操作默认只读被拦"),
+    ("work_office_advanced",    {"engine": "word", "action": "list", "keyword": "comment"}, "ok", "高级 Word：列批注相关工具"),
+    ("work_office_advanced",    {"engine": "word", "action": "call", "tool": "create_document"}, "guard", "高级 Word：写操作默认只读被拦"),
+    # COM：真实探测本机应用、读取当前文档；run_python 的纯数据沙箱不碰 Office
     ("work_office_com",         {"action": "apps"},                              "ok",    "COM 组件探测"),
     ("work_office_com",         {"action": "active"},                            "ok",    "当前打开的文档（只读）"),
     ("work_office_com",         {"action": "run_python", "code": "output = data * 2",
                                  "data": "ab", "keep_open": False},              "ok",    "Python 沙箱：不碰 COM 也能量"),
     ("work_office_com",         {"action": "run_python"},                        "guard", "run_python 缺 code"),
-    ("work_office_watch",       {"action": "status"},                            "ok",    "预览服务状态（只读）"),
-    ("work_office_watch",       {"action": "start"},                             "guard", "预览缺文件"),
     ("work_office_com",         {"action": "info", "file": "{sandbox}/回归合并.docx"}, "slow", "COM 读页数与字数"),
     ("work_office_com",         {"action": "export_pdf", "file": "{sandbox}/回归合并.docx",
                                  "output": "{sandbox}/回归合并.pdf"},              "slow", "COM/WPS 导出 PDF"),
-    ("work_wechat_digest",      {"chat": "__回归不存在的群__", "limit": 1},       "guard", "摘录参数校验"),
-    ("work_wechat_messages",    {"chat": "__回归不存在的群__", "limit": 1},       "guard", "消息参数校验"),
-    # 企业微信：另一套加密（wxSQLite3 逐页 AES-CBC），另一套库，单独覆盖
-    ("work_wecom_probe",        {},                                             "env",   "企微通道探测"),
-    ("work_wecom_sync",         {"force": False},                               "env",   "企微密钥与解密副本"),
-    ("work_wecom_sessions",     {"limit": 3},                                   "env",   "企微会话列表"),
-    ("work_wecom_messages",     {"chat": "__回归不存在的群__", "limit": 1},       "guard", "企微消息参数校验"),
-    ("work_wecom_search",       {"keyword": "请假", "limit": 2},                 "env",   "企微正文搜索（protobuf 解出来才搜得到）"),
-    ("work_wecom_files",        {"limit": 3},                                   "env",   "企微文件清单"),
-    ("work_wecom_contacts",     {"keyword": "王", "limit": 2},                   "env",   "企微通讯录"),
-    ("work_wecom_harvest",      {"since": "2099-01-01", "dry_run": True},        "ok",    "企微收材料 0 匹配（dry-run 不落盘）"),
-    # 通讯：两通道合并视图。即使某条通道读不了，总览本身仍应 ok:true 并把原因写进卡里
-    ("work_comms_overview",     {"limit": 2},                                   "ok",   "通讯总览：两通道状态 + 合并时间线"),
-    # 通讯泛问的新主路径：一次调用跨两通道拿最近消息，通知优先排序
-    ("work_comms_notices",      {"days": 3, "limit": 5},                        "ok",   "最近通知聚合：一次调用两通道"),
-    ("work_comms_notices",      {"days": 1, "limit": 3, "only_notices": True},  "ok",   "最近通知：只看像通知的条目"),
-    ("work_comms_notices",      {"since": "这不是时间"},                          "guard", "最近通知：since 解析校验"),
-    # 克隆的 Office / MCP 引擎：体检与两个只读桥；写操作必须被默认只读拦住
+    # 引擎体检与内置构建指南
     ("work_office_engines",     {},                                             "ok",   "引擎体检：真实加载并数工具数"),
-    ("work_excel_mcp",          {"action": "list", "keyword": "pivot"},          "ok",   "Excel MCP：列透视相关工具"),
-    ("work_excel_mcp",          {"action": "bogus"},                             "guard", "Excel MCP：action 校验"),
-    ("work_excel_mcp",          {"action": "call", "tool": "create_workbook"},    "guard", "Excel MCP：写操作默认只读被拦"),
-    ("work_word_mcp",           {"action": "list", "keyword": "comment"},        "ok",   "Word MCP：列批注相关工具"),
-    ("work_word_mcp",           {"action": "call", "tool": "create_document"},    "guard", "Word MCP：写操作默认只读被拦"),
     ("work_office_inspect",     {"mode": "skills", "skill": "data-dashboard"},    "ok",   "OfficeCLI 内置技能指南加载"),
-    ("work_office_inspect",     {"file": "{sandbox}/回归合并.docx", "mode": "screenshot",
-                                 "output": "{sandbox}/回归截图.png"},              "ok",   "OfficeCLI 高清截图渲染（落沙箱）"),
-    ("work_office_compose",     {"content_or_path": "# 回归富文档\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n$$E=mc^2$$",
-                                 "output": "{sandbox}/回归合成.docx",
-                                 "preset": "modern", "toc": True},                 "ok",   "通用富文档合成（表格+公式+目录，落沙箱）"),
-    ("work_office_diff",        {"file_a": "{sandbox}/回归模板.docx",
-                                 "file_b": "{sandbox}/回归合并.docx"},             "ok",   "Word 文档版本差异对比（只读）"),
-    ("work_office_join_docx",   {"files": "{sandbox}/回归模板.docx,{sandbox}/回归合并.docx",
-                                 "output": "{sandbox}/回归汇编.docx"},             "ok",   "多份 Word 文档拼接合并（落沙箱）"),
+    # 隐藏兼容实现保留，但不再出现在 MCP tools/list 中
+    ("work_office_schema",      {"format": "docx", "element": "paragraph"},      "ok",    "隐藏 schema 实现仍可用"),
+    ("work_officecli_run",      {"command": "validate", "file": "{sandbox}/回归模板.docx"}, "ok", "隐藏 OfficeCLI 校验实现仍可用"),
+    ("work_office_format_gbt9704", {},                                          "run",   "隐藏国标实现仍可用（产物落临时目录）"),
 ]
 
 # 依赖本机微信数据的工具，换机器没数据时不算回归失败
@@ -169,10 +158,10 @@ def _bridge_rows(module: str = "") -> list[dict]:
          "边界：通用任务不接管，给出原生能力落点"),
         ("work.py ask-schema", ["ask", "docx 的 paragraph 有什么属性"],
          "schema 类提问只查手册，且预填 format"),
-        ("work.py schema-empty", ["call", "work_office_schema", "{}"],
+        ("work.py schema-empty", ["call", "work_office_inspect", "{\"mode\":\"schema\"}"],
          "空参 schema 标 overview，不冒充属性表"),
-        ("work.py ask-watch", ["ask", "开个实时预览 边改边看"],
-         "新意图：实时预览命中并标出缺文件"),
+        ("work.py ask-excel-advanced", ["ask", "列一下高级 Excel 里跟透视表有关的工具"],
+         "高级 Excel：统一路由到 work_office_advanced"),
         ("work.py ask-wecom", ["ask", "企业微信里收一下材料"],
          "企微意图：命中收材料，且不串到微信"),
         ("work.py ask-wecom-search", ["ask", "企业微信里谁提过请假"],
@@ -257,18 +246,20 @@ def _bridge_rows(module: str = "") -> list[dict]:
             elif label == "work.py ask-schema":
                 first = (data.get("plan") or [{}])[0] if isinstance(data, dict) else {}
                 ok = (r.returncode == 0 and isinstance(data, dict)
-                      and plans == {"work_office_schema"}
+                      and plans == {"work_office_inspect"}
+                      and (first.get("args") or {}).get("mode") == "schema"
                       and (first.get("args") or {}).get("format") == "docx")
             elif label == "work.py schema-empty":
                 ok = (r.returncode == 0 and isinstance(data, dict)
                       and data.get("mode") == "overview"
                       and bool(data.get("examples")))
-            elif label == "work.py ask-watch":
+            elif label == "work.py ask-excel-advanced":
                 first = (data.get("plan") or [{}])[0] if isinstance(data, dict) else {}
+                args = first.get("args") or {}
                 ok = (r.returncode == 0 and isinstance(data, dict)
-                      and plans == {"work_office_watch"}
-                      and first.get("executable") is False
-                      and "file" in (first.get("needs_input") or []))
+                      and plans == {"work_office_advanced"}
+                      and args.get("engine") == "excel"
+                      and args.get("action") == "list")
             elif label == "work.py ask-wecom":
                 ok = (r.returncode == 0 and isinstance(data, dict)
                       and "work_wecom_harvest" in plans
@@ -448,7 +439,7 @@ _BRIDGE_MODULE = {
     "work.py tools": "memory",
     "work.py ask-schema": "office",
     "work.py schema-empty": "office",
-    "work.py ask-watch": "office",
+    "work.py ask-excel-advanced": "office",
     "work.py ask-readonly": "office",
     "work.py ask": "office",
 }
@@ -467,7 +458,7 @@ def _run_cases_impl(quick: bool, module: str = "") -> dict:
     import work_toolkit_server as G  # noqa: E402
     from work_mods import ALL as _BOXES  # noqa: E402
 
-    tool_module = {n: box.module for box in _BOXES for n in box.names()}
+    tool_module = {n: box.module for box in _BOXES for n in box.names(public_only=False)}
     module = (module or "").strip().lower()
 
     # 写类工具的产物只落系统临时目录，跑完就删，不碰用户材料库
@@ -476,6 +467,7 @@ def _run_cases_impl(quick: bool, module: str = "") -> dict:
     before = set(draft_dir.glob("*.md")) if draft_dir.is_dir() else set()
 
     rows = []
+    outputs: dict[str, dict] = {}
     t0 = time.perf_counter()
     try:
         for name, args, expect, note in CASES:
@@ -500,6 +492,8 @@ def _run_cases_impl(quick: bool, module: str = "") -> dict:
             try:
                 raw = fn(**args)
                 data = json.loads(raw) if isinstance(raw, str) else raw
+                if isinstance(data, dict):
+                    outputs[name] = data
                 ok = bool(isinstance(data, dict) and data.get("ok"))
                 # 各工具报错字段不统一：有的用 error，有的用 reason + detail。
                 # 只要给了人能读懂的原因就算「校验生效」。
@@ -525,6 +519,40 @@ def _run_cases_impl(quick: bool, module: str = "") -> dict:
 
             rows.append({"tool": name, "status": status, "ms": round(ms, 1),
                          "detail": detail, "expect": expect, "note": note})
+
+        # 单一 Office MCP 的公开面必须稳定：保留下来的旧实现只做内部兼容，不再暴露。
+        if module in ("", "office"):
+            import work_mods
+            office_box = work_mods.office.TOOLS
+            expected_public = {
+                "work_office_inspect", "work_office_compose", "work_office_batch",
+                "work_office_consolidate", "work_office_merge", "work_office_import",
+                "work_office_diff", "work_office_join_docx", "work_office_to_pdf",
+                "work_office_com", "work_office_advanced", "work_office_engines",
+            }
+            expected_hidden = {
+                "work_office_format_gbt9704", "work_officecli_run", "work_office_watch",
+                "work_office_schema", "work_office_create", "work_excel_mcp", "work_word_mcp",
+            }
+            public_got = set(office_box.names())
+            all_got = set(office_box.names(public_only=False))
+            hidden_got = all_got - public_got
+            surface_ok = public_got == expected_public and hidden_got == expected_hidden
+            rows.append({
+                "tool": "office_public_surface", "status": "PASS" if surface_ok else "FAIL",
+                "ms": 0.0, "detail": "" if surface_ok else
+                f"public 缺={sorted(expected_public-public_got)} 多={sorted(public_got-expected_public)}；"
+                f"hidden 缺={sorted(expected_hidden-hidden_got)} 多={sorted(hidden_got-expected_hidden)}",
+                "expect": "surface", "note": "Office MCP 精确公开 12 个工具，7 个旧实现仅内部兼容",
+            })
+            engines_blob = json.dumps(outputs.get("work_office_engines") or {}, ensure_ascii=False).lower()
+            decoupled = "wechat" not in engines_blob and "微信" not in engines_blob
+            rows.append({
+                "tool": "office_engines_decoupled", "status": "PASS" if decoupled else "FAIL",
+                "ms": 0.0, "detail": "" if decoupled else "Office 引擎体检仍引用微信模块",
+                "expect": "surface", "note": "Office 引擎体检不跨模块检查微信",
+            })
+
         # 工具本体之外，还要验总 Skill 真正走的那条本地桥接
         rows.extend(_bridge_rows(module))
     finally:

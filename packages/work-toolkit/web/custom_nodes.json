@@ -30,14 +30,14 @@
           "mode": "tool",
           "brief": "克隆的那些 Office / MCP 项目，到底哪些真能用。",
           "intro": [
-            "逐个实际加载 mcp_servers/ 下仓库的入口并数出工具数，给出 ready 与对应的调用桥。",
-            "路径存在不等于可用：OfficeMCP 要 Windows COM，wechat-chat-mcp 需独立 .venv 就绪，都会如实标注。"
+            "逐个实际加载 mcp_servers/ 下克隆的 Office 引擎与入口并数出工具数，给出 ready 与对应调用桥。",
+            "路径存在不等于可用：COM 依赖 Windows Office/WPS，Excel/Word 高级引擎必须真实加载成功。"
           ],
           "io": {
             "in": "可选关键字过滤",
             "out": "每个引擎的 ready / bridge / note / 工具数"
           },
-          "note": "只读。真正接进调用链的主力是 work_excel_mcp 与 work_word_mcp；已有的 work_officecli_run 一直在用。",
+          "note": "只读。日常优先 work_office_inspect / compose / batch；Excel/Word 专业能力统一经 work_office_advanced 按需进入。",
           "args": {
             "action": "probe"
           },
@@ -47,19 +47,20 @@
           "id": "engine_excel",
           "name": "高级 Excel（46 工具）",
           "tag": "只读默认",
-          "tool": "work_excel_mcp",
+          "tool": "work_office_advanced",
           "mode": "tool",
           "brief": "离线透视表 / 图表 / 条件格式 / 公式追踪，先列工具清单。",
           "intro": [
-            "接入 excel-mcp-server 2.2.9，进程内调用 46 个高级 Excel 工具，不依赖装 Office。",
-            "默认 read_only=true；确要写，传 allow_write=true，工具会先把目标工作簿复制到 02_自动备份区/。"
+            "接入 excel-mcp-server 2.2.9，通过 work_office_advanced(engine=\"excel\") 调用 46 个高级 Excel 工具，不依赖本机 Office。",
+            "默认只读；确要写时传 allow_write=true，工具会先把目标工作簿复制到 02_自动备份区/。"
           ],
           "io": {
-            "in": "action=list 加关键字；action=call 加 tool 名与 args JSON",
+            "in": "action=list/schema 加关键字；action=call 加 tool 名与 args JSON",
             "out": "工具清单或单次调用结果"
           },
-          "note": "单张表改几个单元格、加公式、画图仍用 WorkBuddy 原生表格能力；这个桥只补离线批量高级操作。",
+          "note": "只在 OfficeCLI 的读取、编辑与计算覆盖不了时使用；日常表格处理先走 inspect / batch / compose。",
           "args": {
+            "engine": "excel",
             "action": "list"
           },
           "prompt": "列一下克隆的 excel-mcp-server 里跟透视表有关的工具，默认只读。"
@@ -68,19 +69,20 @@
           "id": "engine_word",
           "name": "高级 Word（58 工具）",
           "tag": "只读默认",
-          "tool": "work_word_mcp",
+          "tool": "work_office_advanced",
           "mode": "tool",
           "brief": "批注 / 脚注 / 文档保护 / 结构化编辑，先列工具清单。",
           "intro": [
-            "接入 Office-Word-MCP-Server，58 个 Word 高级工具：多文档合并、大纲与 XML 检视、批注、脚注尾注、文档保护、按锚点插入替换、表格美化。",
-            "默认只放行 get_/list_/find_/search_/view_ 前缀；写操作需 allow_write=true 且自动备份目标 docx。"
+            "接入 Office-Word-MCP-Server，通过 work_office_advanced(engine=\"word\") 调用 58 个 Word 高级工具。",
+            "默认只放行读取类操作；写操作需 allow_write=true，并自动备份目标 docx。"
           ],
           "io": {
-            "in": "action=list 加关键字；action=call 加 tool 名与 args JSON",
+            "in": "action=list/schema 加关键字；action=call 加 tool 名与 args JSON",
             "out": "工具清单或单次调用结果"
           },
-          "note": "写报告、写通知、普通排版仍用 WorkBuddy 原生文档能力，别拿这个桥抢活。",
+          "note": "普通写作、排版、合并与差异优先用 work_office_compose / batch / join_docx / diff。",
           "args": {
+            "engine": "word",
             "action": "list"
           },
           "prompt": "列一下克隆的 Word MCP 里跟批注有关的工具，默认只读。"

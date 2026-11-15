@@ -1,7 +1,7 @@
 # 办公工具箱 · work-toolkit
 
 > 把它当成给 WorkBuddy 装的**一个高级 Skill**：安装一次、重载会话，之后只记 `/work <一句话需求>`。
-> **不用打开网页，不用手动信任 MCP**，47 个本地工具照样全部可用：跨微信 / 企业微信的**最近通知一次调用**、收件归档与催办、查群消息、图片解密、多科室跨表汇总核表、Office 批量处理与克隆引擎桥（高级 Excel / Word）、转 PDF、材料台账、轨迹驱动的任务经验配方与 Engram 通用记忆。GB/T 9704 国标公文保留为**按需附加能力**，不再是核心功能。工具按**通讯**与 **Office** 两个模块分开，可以各自升级、各自验收。
+> **不用打开网页，也不用把 `/work` 当成唯一入口**，41 个公共本地工具和 4 个独立模块 Skill 可直接使用：跨微信 / 企业微信的**最近通知一次调用**、收件归档与催办、查群消息、图片解密、多科室跨表汇总核表、Office 批量处理与按需高级 Excel / Word、精准转 PDF、材料台账、轨迹驱动的任务经验配方与 Engram 通用记忆。GB/T 9704 国标公文保留为**按需附加能力**，不再是核心功能。工具按**通讯**与 **Office** 两个模块分开，可以各自升级、各自验收。
 > 网页控制台保留为**可选的能力可视化展示**，不是使用前提。
 
 全部功能在本机运行，不依赖云端服务，材料不出机器。
@@ -37,7 +37,7 @@ scripts\setup.cmd
 | 看功能可视化 | 双击 `scripts\open-console.cmd`（可选） |
 | 装到新电脑 / 更新 | `/work 安装` 或重跑 `scripts\setup.cmd` |
 | 体检环境 | `/work 体检` |
-| 改代码后验一遍 | `python tools\regress.py`（47 工具 + 本地桥接） |
+| 改代码后验一遍 | `python tools\regress.py`（41 个公共工具 + 本地桥接） |
 
 > 详细步骤、手工安装、可选依赖与常见问题见 **[INSTALL.md](INSTALL.md)**。
 
@@ -83,40 +83,31 @@ scripts\setup.cmd
 | `work_comms_overview` | **只读**：通讯总览，一次给微信 + 企业微信两条通道的状态，并把两边会话合成一条带通道标记的时间线（**不含消息正文**，别拿摘要硬答「有什么通知」） |
 | `work_comms_notices` | **只读·通讯泛问首选**：一次调用扫两条通道最近 3 天的消息，默认通知在前、带截止时间的更前，正文裁短，给 `notice` / `due` / `time_ref` 召回标记与 `notice_by_chat`。取代「总览 → 逐会话读十几个群 → 全文搜索」的十几轮链路 |
 
-### 2. Office 汇总、批量处理与转换（国标公文为附加能力）
+### 2. Office：一个 Skill + 一个 MCP（12 个公共工具）
+
+`work_office_server.py` 只公开 12 个 Office 工具，再加 2 个模块底座工具，共 14 个 MCP 工具。
+旧的 `work_office_create`、`work_office_schema`、`work_officecli_run`、`work_office_watch`、
+`work_office_format_gbt9704`、`work_excel_mcp`、`work_word_mcp` 实现仍保留作内部兼容，
+但不会出现在 `tools/list` 中，避免 Agent 在重叠入口之间选错。
 
 | 工具 | 能力 |
 | :--- | :--- |
-| `work_office_consolidate` | 批量读 Word 申报表 + Excel 分表，合并成汇总母表，校验漏填 / 11 位手机号 / 分项与总计勾稽差额，输出《异常数据核验单》。**会写 xlsx，无 dry-run**；先看结构用只读的 `work_office_inspect` |
-| `work_office_format_gbt9704` | **附加能力，非核心**：仅明确要求国标 / 红头 / 9704 时用。按 **GB/T 9704-2012** 排版 `.docx`：页边距 37/35/28/26 mm、二号小标宋标题、三号黑体/楷体/仿宋层级、固定 28 磅行距、四号页码 |
-| `work_office_to_pdf` | 走本机 COM 导 PDF，版面与「另存为」一致；`engine=auto` 先试 Microsoft Office、失败自动换 **WPS** |
-| `work_office_create` | **写文件**：从零建空白 `.docx` / `.xlsx` / `.pptx`（带 Word/Excel 默认样式），同名文件默认拒绝覆盖 |
-| `work_office_batch` | **写文件**：一次提交多条操作（加段落、设格式、插表格、删元素），只开关文件一次；属性名先用 `work_office_schema` 查 |
-| `work_office_merge` | **写文件**：模板 `{{key}}` + JSON 数据 → 一份新文档；一家一份就换 `output` 逐组调用 |
-| `work_office_import` | **写文件**：把 CSV / TSV 导入已有 `.xlsx` 的指定工作表，可指定起始单元格、首行表头加筛选与冻结 |
-| `work_office_schema` | **只读**：OfficeCLI 的 schema 参考（格式 → 元素 → 属性/单位/可选值），写 `--prop` 前先查 |
-| `work_office_com` | **按动作**：直连本机 MS Office / WPS —— `apps` 看装了哪些、`info` 读页数字数、`export_pdf` 换引擎导 PDF、`recalc` 重算 Excel、`refresh_fields` 刷新 Word 域与目录、`replace` 查找替换、`read_cells` / `set_cells` 读写单元格 |
-| `work_officecli_run` | OfficeCLI 单命令透传（`validate` / `get` / `query` / `set` / `add` / `batch` / `dump` / `raw-set` …） |
-| `work_office_inspect` | `text` / `outline` / `stats` / `issues` / `annotated` / `forms` / `comments`（批注） / `screenshot`（高清截图 PNG） / `html` / `svg` / `pdf` / `skills`（10 套内置构建指南）十二种检视与渲染 |
-| `work_office_compose` | **写文件（新增）**：Markdown（含 GFM 表格、` ```mermaid ` 流程图、`$$数学公式$$`）一键合成原生 `.docx` 或 `.pptx`，支持目录 `toc=true`、水印与 4 套排版预设 |
-| `work_office_diff` | **只读/写报告（新增）**：对比两版 `.docx`（段落增删改+表格变化）或两张 `.xlsx`（单元格变动+数值增减差额 `delta`），可选导出 Markdown 差异报告 |
-| `work_office_join_docx` | **写文件（新增）**：将目录或多份 `.docx` 合并汇编为一份完整 Word 文档，保留段落格式与表格 |
-| `work_backup_file` | 任意文件都能单独备份，带时间戳另存到 `02_自动备份区/`，**绝不改源文件** |
+| `work_office_inspect` | 只读检视：`text`（含 XLSX `cell_range`）、`outline`、`stats`、`issues`、`annotated`、`forms`、`comments`、`screenshot`、`html`、`svg`、`schema`、`skills`。查看 PDF 请用转换工具；`mode=pdf` 不存在 |
+| `work_office_compose` | 把 Markdown（GFM 表格、Mermaid、LaTeX 公式）生成 DOCX/PPTX；也可直接把现有 DOCX 按 `modern` / `academic` / `memo` / `gbt9704` 预设重排 |
+| `work_office_batch` | 通用编辑首选：一次提交多条 OfficeCLI ops；支持 `create=true` 创建后立即写入，默认自动备份并 validate |
+| `work_office_consolidate` | 批量合并 XLSX/CSV/DOCX 表格，支持模板或自动表头，输出汇总表和异常核验单 |
+| `work_office_merge` | 用 `{{key}}` 模板和 JSON/CSV/XLSX 数据生成单份或批量文档 |
+| `work_office_import` | 把 CSV/TSV 导入 XLSX；目标不存在会自动创建，已存在会先备份 |
+| `work_office_diff` | 比较两版 DOCX 或 XLSX，支持按主键列对齐，可选导出 Markdown 差异报告 |
+| `work_office_join_docx` | 合并多份 DOCX，保留段落样式和表格，可插分页和标题 |
+| `work_office_to_pdf` | 通过本机 MS Office/WPS COM 精准导出 PDF；`engine=auto` 自动选择可用应用 |
+| `work_office_com` | 实时 Office/WPS：应用探测、当前文件、页数/字数、重算公式、刷新域、查找替换、读写单元格、`run_python` |
+| `work_office_advanced` | 统一高级引擎入口：`engine="excel"` 桥接 46 个 Excel 工具，`engine="word"` 桥接 58 个 Word 工具；先 `list/schema` 再 `call`，默认只读，写操作需 `allow_write=true` 并自动备份 |
+| `work_office_engines` | 真实加载并体检 OfficeCLI、Excel MCP、Word MCP 和 COM，不以“路径存在”冒充可用 |
 
-### 2.5 克隆的 Office / MCP 引擎（真正接进调用链）
-
-`mcp_servers/` 下的仓库不再是「克隆完就放着」：**先体检、再按需调用**，
-`ready` 以真实 import 入口并数出工具数为准，路径存在不算可用。
-
-| 工具 | 引擎 | 说明 |
-| :--- | :--- | :--- |
-| `work_office_engines` | 全部接入引擎 | 只读体检：逐个列 `ready` / `bridge` / `note`；真实探测 `excel-mcp-server`、`Office-Word-MCP-Server`、`OfficeMCP`、`bin/officecli.exe` 与 `wechat-chat-mcp` |
-| `work_excel_mcp` | excel-mcp-server 2.2.9（46 个工具） | 离线高级 Excel：透视表、图表 / 切片器、条件格式、数据验证、公式追踪与目标求解、VBA 只读查看。`action=list` 列工具，`action=call` 调用；默认 `read_only=true`，写操作需 `allow_write=true` 且自动备份 |
-| `work_word_mcp` | Office-Word-MCP-Server（58 个工具） | Word 高级能力：大纲 / XML 检视、批注、脚注尾注、文档保护、按锚点插入段落表格、页眉页脚；默认只放行 `get_/list_/find_/search_/view_` 前缀，写操作同样需显式授权 + 备份 |
-
-**边界**：单张表改几个单元格、加公式、画图、透视，以及写报告 / 写通知，
-仍走 WorkBuddy 原生表格与文档能力；这两个桥补的是原生能力覆盖不到、
-或需要离线批量复现的高级操作。
+**分工原则**：读取、常规写入和生成先走 `inspect` / `batch` / `compose`；透视表、公式追踪、脚注、保护、
+XML、锚点编辑等只在常规路径覆盖不了时进入 `advanced`；精确 PDF、重算、刷新域和已打开文档控制走
+`to_pdf` / `com`。OfficeCLI 本身不能导出 PDF，产品和文档不再宣称这一点。
 
 ### 3. 台账与自检
 
@@ -165,7 +156,7 @@ python "<项目根目录>/scripts/work.py" call work_status "{}"
 python "<项目根目录>/scripts/work.py" tools work_office_consolidate   # 不确定参数时查
 ```
 
-Skill 负责把「一句话需求」翻译成工具与参数；用户不用知道有 47 个工具，也不用看 JSON。
+Skill 负责把「一句话需求」翻译成工具与参数；用户不用知道有 41 个公共工具，也不用看 JSON。
 安装、体检、经验文档、打开可视化网页也都用 `/work` 加一句话完成，不再有 `/exp`、`/exp-save`、`/work-setup` 等需要记的命令。
 
 **它只接管「办公室批量流水」，不接管 WorkBuddy 的日常本事**：通讯（微信 + 企业微信）**最近通知聚合**、
@@ -179,14 +170,13 @@ Skill 负责把「一句话需求」翻译成工具与参数；用户不用知�
 
 | 能力 | 入口 | 说明 |
 | --- | --- | --- |
-| **实时预览** | `work_office_watch` | 起本地预览页，之后每次改动自动刷新；`goto` 让页面滚到某一段 |
 | **Python 操控** | `work_office_com action="run_python"` | 注入 `Officer.Word/.Excel/.PPT` 执行脚本，干「按我说的把这一页排一下」这类活 |
 | **接管当前窗口** | `action="active"` + `Officer.*` | 优先附加到用户已打开的实例，改完抬头就看见，不是后台偷偷改文件 |
 | **WPS 双引擎** | `engine=ms/wps/auto` | Word↔KWPS、Excel↔KET、PPT↔KWPP，只装 WPS 的机器也能出报送件 |
-| **OfficeCLI 全命令面** | `work_officecli_run` | 白名单 27 条子命令，补齐 `create`/`merge`/`import`/`batch`/`dump`/`schema`/`plugins`/`install`/`watch` |
-| **薄入口 Skill** | `skills/work-office-toolkit/` | 常驻部分 10.1 KB（细节拆成 6 份 `references/` 按需读，四个模块各一份；常驻只留入口、边界与口径） |
+| **单入口批量编辑** | `work_office_batch` | 创建、写入、改格式一次完成，自动备份并 `validate`，不再暴露通用 CLI 直调 |
+| **薄入口 Skill** | `skills/work-office/` | 37 行路由入口；参数、批次 JSON、COM 与故障处理放到 `references/office.md` 按需读取 |
 | **通讯最近通知一次调用** | `work_comms_notices` | 两通道合并消息级时间线，通知优先排序 + 截止时间线索，泛问不再拼十几轮；CLI 直调走轻量注册器，省掉每次约 0.9 s 的 MCP 框架导入 |
-| **克隆引擎真正接入** | `work_office_engines` / `work_excel_mcp` / `work_word_mcp` | 46 + 58 个高级 Excel / Word 工具进程内可调用，默认只读、写前自动备份；`ready` 以真实加载为准 |
+| **高级引擎按需接入** | `work_office_advanced` | 46 + 58 个高级 Excel / Word 工具统一走一个入口，默认只读、写前自动备份；`ready` 以真实加载为准 |
 
 > 维护者若想改网页节点/样式，另有一个 `work-console-upgrade` Skill；日常办公完全不需要它。
 
@@ -197,7 +187,7 @@ Skill 负责把「一句话需求」翻译成工具与参数；用户不用知�
 | 列 | 节点举例 |
 |---|---|
 | **通讯** | 微信与企业微信合成一列：**最近通知（首屏首选）**、通讯总览（两通道状态 + 合并时间线）、会话列表、群消息、全文搜索、收件箱 / 收到的文件、通讯录、图片与截图、归档入库 / 收材料入库、一条龙收材料、催办话术、摘录成文、通道探测、取密钥解库 |
-| **Office** | 汇总母表、文档体检、改前备份、导出 PDF、**国标排版（附加能力）**、新建文档、批量编辑、模板套打、CSV 导入、属性手册、本机 Office / WPS、OfficeCLI 直调、实时预览、Python 操控、**克隆引擎体检 / 高级 Excel / 高级 Word** |
+| **Office** | 文档体检与区域读表、富文档/PPT 合成、创建与批量编辑、模板套打、CSV 导入、汇总核验、版本对比、Word 合并、精确 PDF、本机 Office/WPS、高级 Excel/Word、引擎体检 |
 | **记忆** | 材料台账、**任务经验**（整篇复制）、改前备份 |
 | **其他** | 工作区目录树、运行状态、工具箱自检、自定义节点 |
 
@@ -226,7 +216,7 @@ Skill 负责把「一句话需求」翻译成工具与参数；用户不用知�
 `python tools\register_mcp.py` 自动写这份配置（合并保留其他 MCP）。**这是可选增强**：其他 MCP 客户端、或想让工具列表里直接出现 `work_*` 时才用；WorkBuddy 日常 `/work` 走本地桥接，不点「信任」也完全可用。
 
 只要一个模块的话，换成各自的入口即可：`mcp/work_comms_server.py`（其他 + 通讯，25 个）、
-`mcp/work_office_server.py`（其他 + Office，20 个）或 `mcp/work_memory_server.py`（其他 + 记忆，6 个），
+`mcp/work_office_server.py`（其他 2 个 + Office 12 个）或 `mcp/work_memory_server.py`（其他 2 个 + 记忆 4 个），
 不需要的依赖根本不会加载。
 
 ---
@@ -236,12 +226,12 @@ Skill 负责把「一句话需求」翻译成工具与参数；用户不用知�
 ```
 mcp/work_core.py               内核：注册器、路径常量、参数说明（不放业务工具）
 mcp/work_mods/comms.py         通讯：微信 + 企业微信只读（23 个）
-mcp/work_mods/office.py        Office：通用富文档与PPT合成 / 版本对比 / 多文档合并 / 无模板汇总 / 排版 / OfficeCLI / COM / 高级 Excel 与 Word（18 个）
+mcp/work_mods/office.py        Office：19 个实现，其中 12 个公开；7 个旧入口仅内部兼容
 mcp/work_mods/memory.py        记忆：经验配方 work_exp / Engram 通用记忆 work_mem / 材料台账 / 文件备份（4 个）
 mcp/work_mods/other.py         其他：状态总览 / 模块清单（2 个，公共底座随各入口挂载）
-mcp/work_toolkit_server.py     合体入口：只挂载四个 ToolBox，自身不实现工具（47 个）
+mcp/work_toolkit_server.py     合体入口：只挂载四个 ToolBox，自身不实现工具（41 个公共工具）
 mcp/work_comms_server.py       通讯入口：其他 + 通讯（25 个）
-mcp/work_office_server.py      Office 入口：其他 + Office（20 个）
+mcp/work_office_server.py      Office 入口：其他 + Office（14 个）
 mcp/work_memory_server.py      记忆入口：其他 + 记忆（6 个）
 ```
 
@@ -260,9 +250,9 @@ mcp/work_memory_server.py      记忆入口：其他 + 记忆（6 个）
 ```
 mcp/work_core.py               内核（注册器 / 路径 / 参数说明）
 mcp/work_mods/                 通讯 comms.py、Office office.py、记忆 memory.py、其他 other.py（互不 import）
-mcp/work_toolkit_server.py     合体入口：挂载四个模块（46 个工具；CLI 直调走轻量注册器）
+mcp/work_toolkit_server.py     合体入口：挂载四个模块（41 个公共工具；CLI 直调走轻量注册器）
 mcp/work_comms_server.py       通讯模块入口（其他 + 通讯，25 个）
-mcp/work_office_server.py      Office 模块入口（其他 + Office，20 个）
+mcp/work_office_server.py      Office 模块入口（其他 + Office，14 个）
 mcp/work_memory_server.py      记忆模块入口（其他 + 记忆，6 个）
 mcp_servers/                  克隆的 Office / 通讯 MCP 仓库（excel-mcp、Word MCP 已接入调用链）
 mcp/dump_tools.py             由函数签名生成 web/tools.json（带 module 归属）
@@ -276,7 +266,7 @@ web/                          模板 / 构建 / 本地服务 / 自定义节点
   tools.json                 由 dump_tools.py 生成的工具清单
 tools/                        doctor / regress（支持 --module）/ check_nodes / check_intents / register_mcp / run_tool
 scripts/                      setup / work.py（本地桥接）/ launch / install_skills / .cmd 入口
-skills/                       薄入口 Skill + references/ 按需读 + 唯一 /work 命令；另有维护者用的网页升级 Skill
+skills/                       独立模块 Skill（comms / office / memory）+ 可选 /work 组合入口；Office 细节放 references/ 按需读
 workspace/11_任务经验/         两篇真实任务样板 + index.md
 docs/                         EXPERIENCE / INTEGRATION / WECHAT-CAPABILITY
 ```
@@ -291,7 +281,7 @@ docs/                         EXPERIENCE / INTEGRATION / WECHAT-CAPABILITY
 
 - **全部本机运行**，不调用任何云端 API，不上传材料。微信相关能力以只读为主；写操作只往 `workspace/` 落文件。
 - 微信 4.x 的桌面 UI 自动化在本机不可用（客户端在托盘、无主窗口），因此**不提供未经验证的发送能力**；催办默认只生成话术，失败落待发队列。
-- `work_officecli_run` / `work_office_inspect` 依赖 `bin/officecli.exe`（已随仓库附带）；`work_office_to_pdf` 需要本机装有 Microsoft Office。缺 Office 时对应工具会明确报错，不影响其余工具。
+- `work_office_inspect` / `batch` / `compose` 依赖 `bin/officecli.exe`（已随仓库附带）；`work_office_to_pdf` 和 COM 动作需要本机 Microsoft Office 或 WPS。OfficeCLI 不支持 PDF 导出，缺应用时对应工具会明确报错，不影响其余工具。
 - 目前只在 **Windows + Python 3.10+（实测 3.14.4）** 上验证过；微信解密链路针对 4.x，企业微信解密链路针对 wxSQLite3 加密库（需客户端在运行）。
 
 ---
@@ -300,10 +290,10 @@ docs/                         EXPERIENCE / INTEGRATION / WECHAT-CAPABILITY
 
 | 项目 | 结果 |
 | --- | --- |
-| 工具回归 | `tools/regress.py` 65 条用例 / 37 工具 / **0 失败** |
-| 前端 | 3 列 41 节点，Edge 无头实测渲染正常；内联脚本 `node --check` 通过 |
+| 工具回归 | `tools/regress.py` 101 条用例 / 41 个公共工具 / **0 失败**（约 20 秒） |
+| 前端 | 四列装配台 / 41 个公共工具 / 9 个自定义节点；构建成功，内联脚本 `node --check` 通过 |
 | 经验库 | `list` 与 `get` 毫秒级，整篇原文不截断；同名同日期 `save` 默认不覆盖 |
-| 网页产物 | `console.html` 约 **134 KB 单文件**，无外链 |
+| 网页产物 | `console.html` 约 **112 KB 单文件**，无外链 |
 | 仓库体积 | 源码与文档约 **1 MB** + OfficeCLI 二进制 32 MB |
 | 一键安装 | `setup.cmd` 6 步，工具与桥接验收 **8/8** 通过 |
 

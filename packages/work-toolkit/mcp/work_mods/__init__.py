@@ -141,8 +141,9 @@ def describe(ids: str | Iterable[str] | None = None) -> list:
     for mid in target_ids:
         mod = load_module(mid)
         meta = dict(getattr(mod, "MODULE", {"id": mid, "name": mid}))
-        meta["tools"] = len(mod.TOOLS.tools)
-        meta["names"] = mod.TOOLS.names()
+        names = mod.TOOLS.names()
+        meta["tools"] = len(names)
+        meta["names"] = names
         out.append(meta)
     return out
 

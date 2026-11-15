@@ -743,7 +743,7 @@
     },
     {
       "id": "office_engines",
-      "name": "克隆的 Office / MCP 引擎到底用上了没",
+      "name": "Office 引擎体检",
       "keywords": {
         "克隆的": 9,
         "克隆的那些": 10,
@@ -763,11 +763,11 @@
       "writes": false,
       "stage": 1,
       "confirm": false,
-      "note": "只读体检：逐个实际加载克隆仓库的入口并数出工具数，ready=true 才代表真能调。回答时按 engines 里的 bridge 与 note 如实说：OfficeMCP 依赖 Windows COM，wechat-chat-mcp 依赖独立 .venv，别把路径存在当成可用。真正能调的主力是 work_excel_mcp / work_word_mcp、work_officecli_run 与 wechat_chat。"
+      "note": "只读体检：实际加载 OfficeCLI、excel-mcp-server、Office-Word-MCP-Server 与 COM 封装，ready=true 才代表入口可用。高级 Excel/Word 统一通过 work_office_advanced 进入；日常读写优先走 inspect / compose / batch。"
     },
     {
       "id": "office_excel_bridge",
-      "name": "高级 Excel 离线能力（克隆的 excel-mcp-server）",
+      "name": "高级 Excel 专项引擎",
       "keywords": {
         "excel-mcp": 10,
         "excel mcp": 10,
@@ -790,18 +790,18 @@
         "公式依赖": 9,
         "迷你图": 8
       },
-      "primary": "work_excel_mcp",
+      "primary": "work_office_advanced",
       "steps": [
-        "work_excel_mcp:list"
+        "work_office_advanced:excel_list"
       ],
       "writes": false,
       "stage": 1,
       "confirm": false,
-      "note": "46 个高级 Excel 离线工具（透视表 / 图表 / 条件格式 / 数据验证 / 公式追踪 / 目标求解等）。action=list 含完整参数 schema；action=call 传 tool + args JSON（自动兼容 path/file/file_path 与工作区相对路径）。"
+      "note": "只在 OfficeCLI 常规表格能力覆盖不了时使用。先 engine=\"excel\", action=\"list\" 查准确子工具与参数，再 action=\"call\"；默认只读，写操作需 allow_write=true。"
     },
     {
       "id": "office_word_bridge",
-      "name": "高级 Word 离线能力（克隆的 Word MCP）",
+      "name": "高级 Word 专项引擎",
       "keywords": {
         "word-mcp": 10,
         "word mcp": 10,
@@ -820,14 +820,14 @@
         "锚点插入": 9,
         "锚点替换": 9
       },
-      "primary": "work_word_mcp",
+      "primary": "work_office_advanced",
       "steps": [
-        "work_word_mcp:list"
+        "work_office_advanced:word_list"
       ],
       "writes": false,
       "stage": 1,
       "confirm": false,
-      "note": "58 个高级 Word 工具（多文档合并 / 大纲与 XML 检视 / 批注提取 / 脚注尾注 / 文档保护 / 按锚点插入替换 / 表格美化）。action=list 含完整参数 schema；action=call 传 tool + args JSON（自动兼容 filename/file/path 与工作区相对路径）。"
+      "note": "只在 OfficeCLI 常规 Word 能力覆盖不了时使用。先 engine=\"word\", action=\"list\" 查准确子工具与参数，再 action=\"call\"；默认只读，写操作需 allow_write=true。"
     },
     {
       "id": "office_format",
@@ -854,14 +854,14 @@
         "三线表排版": 9,
         "备忘录排版": 9
       },
-      "primary": "work_office_format_gbt9704",
+      "primary": "work_office_compose",
       "steps": [
-        "work_office_format_gbt9704"
+        "work_office_compose"
       ],
       "writes": true,
       "out_dir": "workspace/03_汇总与成稿输出/",
       "confirm": false,
-      "note": "支持 preset='gbt9704'（默认，党政机关红头公文）、'modern'（现代商务蓝灰卡片表头）、'academic'（学术论文三线表）、'memo'（极简内部备忘录），并原生渲染 Markdown GFM 表格与列表。",
+      "note": "统一走 work_office_compose：Markdown/文本生成新文档，或传现有 .docx 按 preset 重排。preset=gbt9704/modern/academic/memo；生成后检查 validation。",
       "stage": 2
     },
     {
@@ -941,32 +941,30 @@
       "primary": "work_office_inspect",
       "steps": [
         "work_office_inspect",
-        "work_backup_file",
-        "work_officecli_run",
-        "work_officecli_run:validate"
+        "work_office_batch"
       ],
       "writes": true,
       "out_dir": "workspace/02_自动备份区/ + 原文件",
       "confirm": true,
-      "note": "覆盖原件前必须 work_backup_file 并先问用户；改完用 work_officecli_run(command=\"validate\", file=<原文件路径>) 校验，validate 必须带 file。改多处或批量设置格式改用 work_office_batch；属性名不确定先 work_office_schema；Word 大范围查找替换可用 work_office_com action=replace。",
+      "note": "先 inspect 读取 DOM/结构，再 batch 一次提交多处修改；batch 自动备份并 validate。需要属性名用 inspect(mode=\"schema\")。",
       "stage": 3
     },
     {
       "id": "officecli",
-      "name": "OfficeCLI 直调",
+      "name": "OfficeCLI 结构化批量编辑",
       "keywords": {
         "officecli": 10,
         "命令行调用": 6,
         "直接调": 5
       },
-      "primary": "work_officecli_run",
+      "primary": "work_office_batch",
       "steps": [
-        "work_officecli_run"
+        "work_office_batch"
       ],
       "writes": true,
       "out_dir": "原文件（就地修改，改前先 work_backup_file）",
       "confirm": true,
-      "note": "command 支持 validate/view/get/query/set/add/remove/move/swap/raw/raw-set/add-part/batch/refresh/save/open/close/dump/help/plugins；不支持的会返回明确 error。多步用 work_office_batch，建文档 work_office_create，套模板 work_office_merge，导 CSV work_office_import。文件被占用先 command=close。"
+      "note": "不再暴露通用 CLI 直调；用 work_office_batch 提交结构化 ops，安全备份并自动校验。"
     },
     {
       "id": "office_schema",
@@ -984,13 +982,13 @@
         "属性表": 7,
         "元素有哪些": 8
       },
-      "primary": "work_office_schema",
+      "primary": "work_office_inspect",
       "steps": [
-        "work_office_schema"
+        "work_office_inspect:schema"
       ],
       "writes": false,
       "confirm": false,
-      "note": "只读。format 可 docx/xlsx/pptx；先列元素再查属性。空参只返回总览（mode=overview），答不出属性名——必须带 format，最好连 verb / element 一起给。不要凭印象编 --prop 名。"
+      "note": "schema 已并入 work_office_inspect(mode=\"schema\")；带 format、verb、element 查准确属性。"
     },
     {
       "id": "office_create",
@@ -1014,14 +1012,14 @@
         "白纸": 6,
         "新建一个": 5
       },
-      "primary": "work_office_create",
+      "primary": "work_office_batch",
       "steps": [
-        "work_office_create"
+        "work_office_batch:create"
       ],
       "writes": true,
       "out_dir": "workspace/03_汇总与成稿输出/",
       "confirm": false,
-      "note": "默认落 03_汇总与成稿输出/；force=true 才覆盖已有文件。建完用 work_office_batch 写内容。",
+      "note": "新建空白文件走 work_office_batch(create=true, file=\"...\")；随后可在同一个工具继续写 ops。",
       "stage": 1
     },
     {
@@ -1042,14 +1040,12 @@
       "primary": "work_office_batch",
       "steps": [
         "work_office_inspect",
-        "work_backup_file",
-        "work_office_batch",
-        "work_officecli_run:validate"
+        "work_office_batch"
       ],
       "writes": true,
       "out_dir": "workspace/02_自动备份区/ + 原文件",
       "confirm": true,
-      "note": "覆盖原件前先备份并问用户；属性名不确定先 work_office_schema；改完 validate。",
+      "note": "先 inspect 读取 DOM/结构，再 batch 一次提交多处修改；batch 会自动备份并 validate。属性名不确定时用 inspect(mode=\"schema\")，不要再找隐藏的 schema/CLI 工具。",
       "stage": 3
     },
     {
@@ -1095,7 +1091,7 @@
       "writes": true,
       "out_dir": "目标 xlsx",
       "confirm": false,
-      "note": "方向是 **CSV → Excel**，目标必须是已存在的 .xlsx（先 work_office_create）。反过来「xlsx 导出成 csv」不归这里，用原生表格能力。表名要真实存在；分隔符不对就传 delimiter。",
+      "note": "方向是 CSV/TSV → Excel。目标 .xlsx 不存在时会自动创建；已存在则先备份。反过来「xlsx 导出成 csv」不归这里，用原生表格能力。表名要真实存在；分隔符不对就传 delimiter。",
       "stage": 2
     },
     {
@@ -1252,25 +1248,6 @@
       "writes": false,
       "confirm": false,
       "note": "只读。返回每个应用的文档数与当前激活文件；saved=false 说明有未保存改动，别当成已落盘。"
-    },
-    {
-      "id": "office_watch",
-      "name": "边改边看的实时预览",
-      "keywords": {
-        "实时预览": 10,
-        "watch": 9,
-        "看着改": 9,
-        "边改边看": 9,
-        "开个预览": 8,
-        "预览页面": 8
-      },
-      "primary": "work_office_watch",
-      "steps": [
-        "work_office_watch:start"
-      ],
-      "writes": false,
-      "confirm": false,
-      "note": "起本地预览服务后，officecli 的每次改动都会自动刷新到网页，适合「改一版看一眼」。给用户 http://127.0.0.1:26315 这个地址；用完 action=stop，别让它一直占端口。"
     },
     {
       "id": "backup",

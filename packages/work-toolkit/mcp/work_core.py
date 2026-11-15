@@ -44,7 +44,8 @@ class _LiteToolRegistry:
     def __init__(self, **_kw):
         self.tools: List[Dict[str, Any]] = []
 
-    def tool(self, name: str | None = None, description: str | None = None, **_kw):
+    def tool(self, name: str | None = None, description: str | None = None,
+             public: bool = True, **_kw):
         def deco(fn):
             self.tools.append({"name": name or fn.__name__,
                                "description": description or "", "fn": fn})
@@ -151,7 +152,7 @@ ALLOWED_EXTS = {".docx", ".doc", ".xlsx", ".xls", ".pptx", ".pdf"}
 # 工具注册：各模块用 @TOOLS.tool(...) 收集，入口文件决定把哪些模块挂到服务上
 # --------------------------------------------------------------------------- #
 _TRACE_SKIP_TOOLS = {"work_status", "work_modules", "work_exp"}
-_DISCOVERY_TOOLS = {"work_office_engines", "work_office_schema", "work_wechat_probe", "work_wecom_probe"}
+_DISCOVERY_TOOLS = {"work_office_engines", "work_wechat_probe", "work_wecom_probe"}
 _INPUT_KEYS = ("file", "path", "filename", "file_path", "source_dir", "file_a", "file_b",
                "template", "template_path", "roster", "chat", "chat_group", "record_dir", "source")
 _OUTPUT_KEYS = ("output", "output_path", "saved_to", "backup", "report_path", "dst", "dest_dir")
@@ -183,7 +184,12 @@ def _append_tool_trace(module: str, tname: str, bound_args: Dict[str, Any], out:
                     err = str(parsed[k])[:240]
                     break
         sub_tool = ""
-        if tname in ("work_excel_mcp", "work_word_mcp"):
+        if tname == "work_office_advanced":
+            eng = str(bound_args.get("engine") or "")
+            act = str(bound_args.get("action") or "list")
+            sub = str(bound_args.get("tool") or "")
+            sub_tool = f"{eng}:{sub if (act == 'call' and sub) else '[' + act + ']'}"
+        elif tname in ("work_excel_mcp", "work_word_mcp"):
             act = str(bound_args.get("action") or "list")
             sub = str(bound_args.get("tool") or "")
             sub_tool = sub if (act == "call" and sub) else f"[{act}]"
@@ -196,15 +202,16 @@ def _append_tool_trace(module: str, tname: str, bound_args: Dict[str, Any], out:
 
         is_discovery = (
             tname in _DISCOVERY_TOOLS
+            or (tname == "work_office_advanced" and str(bound_args.get("action") or "list") in ("list", "schema"))
             or (tname in ("work_excel_mcp", "work_word_mcp") and str(bound_args.get("action") or "list") in ("list", "schema"))
-            or (tname == "work_office_inspect" and str(bound_args.get("mode") or "") == "skills")
+            or (tname == "work_office_inspect" and str(bound_args.get("mode") or "") in ("skills", "schema"))
         )
         inputs: List[str] = []
         for k in _INPUT_KEYS:
             v = bound_args.get(k)
             if isinstance(v, str) and v.strip() and v.strip() not in inputs:
                 inputs.append(v.strip()[:160])
-        if tname in ("work_excel_mcp", "work_word_mcp") and bound_args.get("args"):
+        if tname in ("work_office_advanced", "work_excel_mcp", "work_word_mcp") and bound_args.get("args"):
             raw_sub = bound_args.get("args")
             sub_dict = raw_sub if isinstance(raw_sub, dict) else (_parse_json(str(raw_sub)) or {})
             if isinstance(sub_dict, dict):
@@ -249,7 +256,8 @@ class ToolBox:
         self.module = module
         self.tools: List[Dict[str, Any]] = []
 
-    def tool(self, name: str | None = None, description: str | None = None, **_kw):
+    def tool(self, name: str | None = None, description: str | None = None,
+             public: bool = True, **_kw):
         def deco(fn):
             tname = name or fn.__name__
             sig = None
@@ -275,12 +283,13 @@ class ToolBox:
                 return out
 
             self.tools.append({"module": self.module, "name": tname,
-                               "description": description or "", "fn": _wrapped})
+                               "description": description or "", "fn": _wrapped,
+                               "public": bool(public)})
             return _wrapped
         return deco
 
-    def names(self) -> List[str]:
-        return [t["name"] for t in self.tools]
+    def names(self, public_only: bool = True) -> List[str]:
+        return [t["name"] for t in self.tools if t.get("public", True) or not public_only]
 
 
 def register(server, boxes) -> int:
@@ -288,6 +297,8 @@ def register(server, boxes) -> int:
     n = 0
     for box in boxes:
         for t in box.tools:
+            if not t.get("public", True):
+                continue
             server.tool(name=t["name"], description=t["description"])(t["fn"])
             n += 1
     return n
@@ -689,6 +700,11 @@ _PARAM_DOCS_BY_TOOL = {
     ("work_office_join_docx", "output"): "合并后的目标 .docx 输出路径",
     ("work_office_join_docx", "page_break"): "文档之间是否插入分页符（默认 true）",
     ("work_office_join_docx", "include_title"): "是否把每个源文件名作为一级标题插入（默认 false）",
+    ("work_office_advanced", "engine"): "高级引擎：excel（46 个表格工具）或 word（58 个文档工具）",
+    ("work_office_advanced", "action"): "list（或 schema）查子工具与参数；call 执行指定子工具",
+    ("work_office_advanced", "tool"): "action=call 时的子工具名，如 create_pivot_table / trace_formula / get_all_comments",
+    ("work_office_advanced", "args"): "子工具参数 JSON 对象字符串",
+    ("work_office_advanced", "allow_write"): "是否允许写操作；默认 false，写前自动备份到 02_自动备份区/",
     ("work_exp", "action"): "distill（从近期工具轨迹一键提炼绑定模块工具链的经验）/ list / search / get / replay（一键重放）/ to_skill（导出子Skill）/ trace / save / template / export",
     ("work_exp", "query"): "检索关键词（action=search 时匹配标题、摘要、标签、工具名与正文）",
     ("work_exp", "module"): "按所属模块过滤或标注：comms / office / memory",
@@ -720,17 +736,17 @@ _PARAM_REQUIRED = {
     "work_wechat_search": ["keyword"],
     "work_wecom_messages": ["chat"],
     "work_wecom_search": ["keyword"],
-    "work_office_inspect": ["file"],
     "work_backup_file": ["file"],
     "work_officecli_run": ["file"],
     "work_wechat_digest": ["chat"],
-    "work_office_batch": ["file", "ops"],
+    "work_office_batch": ["file"],
     "work_office_create": ["file"],
     "work_office_merge": ["template", "output", "data"],
     "work_office_import": ["file"],
     "work_office_com": ["action"],
     "work_office_compose": ["content_or_path"],
     "work_office_diff": ["file_a", "file_b"],
+    "work_office_advanced": ["engine"],
 }
 
 

@@ -370,9 +370,7 @@ _ACTION_REQUIRED = {
     ("work_office_com", "set_cells"): ["cells"],
     # 不给 code 就等于空跑；提前标成 needs_input，让它先把脚本写出来
     ("work_office_com", "run_python"): ["code"],
-    ("work_office_watch", "start"): ["file"],
-    ("work_office_watch", "mark"): ["path"],
-    ("work_office_watch", "goto"): ["path"],
+    ("work_office_advanced", "call"): ["engine", "tool"],
 }
 
 # matched:false 时告诉智能体「该用哪个原生能力」，而不是只丢一句「找不到工具」。
@@ -502,9 +500,10 @@ def _step_args(step: str) -> tuple[str, dict]:
         "replace": {"action": "replace"},
         "active": {"action": "active"},
         "run_python": {"action": "run_python"},
-        # work_office_watch 的动作
-        "start": {"action": "start"},
-        "stop": {"action": "stop"},
+        "schema": {"mode": "schema"},
+        "create": {"create": True},
+        "excel_list": {"engine": "excel", "action": "list"},
+        "word_list": {"engine": "word", "action": "list"},
         # work_wechat_files 的模式
         "scan": {"mode": "scan"},
         "pull": {"mode": "pull"},
@@ -1026,7 +1025,14 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
                 payload_args["cell_range"] = mrng.group(1)
                 auto.append("cell_range")
             if payload_args.get("mode", "text") == "text":
-                if any(w in ql for w in ("截图", "缩略图", "渲染成图", "screenshot")):
+                if any(w in ql for w in ("schema", "属性名", "属性表", "元素怎么写", "查元素")):
+                    payload_args["mode"] = "schema"
+                    fmt = _infer_format(q)
+                    if fmt:
+                        payload_args["format"] = fmt
+                        auto.append("format")
+                    auto.append("mode")
+                elif any(w in ql for w in ("截图", "缩略图", "渲染成图", "screenshot")):
                     payload_args["mode"] = "screenshot"
                     auto.append("mode")
                 elif any(w in ql for w in ("批注", "comments")):
@@ -1040,8 +1046,6 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
                     auto.append("mode")
                 elif any(w in ql for w in ("构建指南", "load_skill")):
                     payload_args["mode"] = "skills"
-                    if "file" in required:
-                        required.remove("file")
                     auto.append("mode")
 
         # 9d. work_office_join_docx 自动提取目录 source_dir 或文件列表 files
@@ -1062,8 +1066,8 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
                         auto.append("source_dir")
                         break
 
-        # 9e. work_office_compose / work_office_format_gbt9704 自动提取 preset / format / toc
-        if tool in ("work_office_compose", "work_office_format_gbt9704"):
+        # 9e. work_office_compose 自动提取 preset / format / toc
+        if tool == "work_office_compose":
             if "preset" in props and not str(payload_args.get("preset", "")).strip():
                 if any(w in ql for w in ("学术", "三线表", "论文", "academic")):
                     payload_args["preset"] = "academic"
@@ -1100,7 +1104,7 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
                 auto.append("since")
         # 「有了就覆盖」要落成 force=true，否则默认保护会让工具直接报「文件已存在」，
         # 用户还得再解释一遍。只对建/合两类生效，别无脑给所有写工具加 force。
-        if tool in ("work_office_create", "work_office_merge") and "force" not in payload_args:
+        if tool in ("work_office_compose", "work_office_merge") and "force" not in payload_args:
             if re.search(r"覆盖掉|覆盖|盖掉|强写|强制写|有就换", q):
                 payload_args["force"] = True
                 auto.append("force")
@@ -1144,9 +1148,8 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
         for step in it.get("steps") or []:
             tool, args = _step_args(step)
             auto_fmt = False
-            # work_office_schema 不给 format 只会返回顶层 help，答非所问。
-            # 原话里提到表格/文档/PPT 就先补上，让它一次问到元素清单。
-            if tool == "work_office_schema" and not str(args.get("format", "")).strip():
+            # schema 已并入 work_office_inspect；原话提到表格/文档/PPT 时先补 format。
+            if tool == "work_office_inspect" and args.get("mode") == "schema" and not str(args.get("format", "")).strip():
                 fmt = _infer_format(q)
                 if fmt:
                     args["format"] = fmt
@@ -1211,7 +1214,7 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
         "work_comms_overview", "work_comms_notices",
         "work_wecom_probe", "work_wecom_sessions", "work_wecom_messages",
         "work_wecom_search", "work_wecom_files", "work_wecom_contacts",
-        "work_office_inspect", "work_office_schema", "work_office_engines", "work_ledger",
+        "work_office_inspect", "work_office_engines", "work_ledger",
     }
     readonly = any(h in q for h in READONLY_HINTS) and not consult
     original_plan: list = []
@@ -1227,6 +1230,8 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
                 return item.get("args", {}).get("action") in ("list", "get", "template")
             if tool == "work_wechat_files":
                 return item.get("args", {}).get("mode", "scan") == "scan"
+            if tool == "work_office_advanced":
+                return item.get("args", {}).get("action", "list") in ("list", "schema")
             return tool in READONLY_TOOLS
 
         original_plan = plan
@@ -1257,7 +1262,7 @@ def cmd_ask(query: str, module: str = "", run_exec: bool = False) -> int:
     # 但一旦计划里带了 force=true，动作就变成覆盖已有文件，属于破坏性写入。
     # 这里按实际参数兜底，别让「新建一份」和「新建并覆盖」共用同一个确认等级。
     # work_wechat_sync 的 force 只是重解缓存、不毁数据，不在其列。
-    FORCE_OVERWRITE_TOOLS = {"work_office_create", "work_office_merge"}
+    FORCE_OVERWRITE_TOOLS = {"work_office_compose", "work_office_merge"}
     if not consult and not readonly:
         for _it in plan:
             if _it.get("kind") != "tool" or _it.get("tool") not in FORCE_OVERWRITE_TOOLS:
@@ -1360,19 +1365,19 @@ _SHORT_TOOL_ALIASES = {
         "join": "work_office_join_docx",
         "join_docx": "work_office_join_docx",
         "consolidate": "work_office_consolidate",
-        "format": "work_office_format_gbt9704",
-        "gbt9704": "work_office_format_gbt9704",
-        "excel": "work_excel_mcp",
-        "excel_mcp": "work_excel_mcp",
-        "word": "work_word_mcp",
-        "word_mcp": "work_word_mcp",
+        "format": "work_office_compose",
+        "gbt9704": "work_office_compose",
+        "advanced": "work_office_advanced",
+        "excel": "work_office_advanced",
+        "excel_mcp": "work_office_advanced",
+        "word": "work_office_advanced",
+        "word_mcp": "work_office_advanced",
         "merge": "work_office_merge",
-        "create": "work_office_create",
+        "create": "work_office_batch",
         "batch": "work_office_batch",
         "import": "work_office_import",
-        "schema": "work_office_schema",
-        "cli": "work_officecli_run",
-        "watch": "work_office_watch",
+        "schema": "work_office_inspect",
+        "cli": "work_office_batch",
         "pdf": "work_office_to_pdf",
         "to_pdf": "work_office_to_pdf",
         "com": "work_office_com",
@@ -1403,6 +1408,20 @@ def cmd_module_entry(mod_id: str, tokens: list[str], run_exec: bool = False, tim
 
     if resolved_tool:
         raw_args = tokens[1] if len(tokens) > 1 else "{}"
+        try:
+            parsed_args = json.loads(raw_args) if str(raw_args).strip() else {}
+        except Exception:
+            parsed_args = None
+        if isinstance(parsed_args, dict):
+            if resolved_tool == "work_office_advanced" and first in ("excel", "excel_mcp", "word", "word_mcp"):
+                parsed_args.setdefault("engine", "excel" if first.startswith("excel") else "word")
+            elif resolved_tool == "work_office_inspect" and first == "schema":
+                parsed_args.setdefault("mode", "schema")
+            elif resolved_tool == "work_office_batch" and first == "create":
+                parsed_args.setdefault("create", True)
+            elif resolved_tool == "work_office_compose" and first in ("format", "gbt9704"):
+                parsed_args.setdefault("preset", "gbt9704" if first == "gbt9704" else "modern")
+            raw_args = json.dumps(parsed_args, ensure_ascii=False)
         return cmd_call(resolved_tool, raw_args, timeout)
 
     return cmd_ask(" ".join(tokens), module=mod_id, run_exec=run_exec)

@@ -3,7 +3,7 @@
 """work_toolkit_server.py — 可配置组合/全量入口（stdin/stdout MCP 服务）。
 
 支持三种用法：
-1. 默认全量挂载（other + comms + office + memory，共 46 个工具）：
+1. 默认全量挂载（other + comms + office + memory，共 41 个公共工具）：
        python mcp/work_toolkit_server.py
 2. 按需组合挂载任意模块（命令行 `--modules` 或环境变量 `WORK_MODULES`）：
        python mcp/work_toolkit_server.py --modules comms,office
@@ -53,7 +53,7 @@ server = make_server(
     version=VERSION,
     instructions=(
         f"办公工具箱（已挂载模块：{', '.join(_LOADED)}）：支持单独调用或跨模块组合调用"
-        "通讯（微信 4.x / 企业微信）、通用与政务 Office（OfficeCLI / 46个Excel工具 / 58个Word工具 / COM）"
+        "通讯（微信 4.x / 企业微信）、通用 Office（OfficeCLI 主链 + 按需高级 Excel/Word + COM）"
         "及记忆（材料台账 / 任务经验 / 自动备份）。无需以 /work 作为唯一入口。"
     ),
 )

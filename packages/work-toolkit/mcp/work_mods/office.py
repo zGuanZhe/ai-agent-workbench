@@ -163,10 +163,10 @@ def _run_officecli(argv: List[str], timeout: int = 120) -> Dict[str, Any]:
 MODULE = {
     "id": "office",
     "name": "Office",
-    "version": "1.0.0",
-    "scope": "跨表汇总、OfficeCLI 检视编辑、COM 实时操控、PDF 转换、克隆的高级 Excel/Word 引擎",
+    "version": "2.0.0",
+    "scope": "单一 Office MCP：OfficeCLI 检视/生成/批量编辑、汇总核验、版本对比、Word 合并、精确 PDF、COM 实时操控与按需高级 Excel/Word 引擎",
     "entry": "mcp/work_office_server.py",
-    "docs": "skills/work-office-toolkit/references/office.md",
+    "docs": "skills/work-office/references/office.md",
 }
 
 
@@ -182,19 +182,19 @@ def status_engines() -> List[Dict[str, Any]]:
     except Exception:  # noqa: BLE001
         _com_ok = False
     return [
-        {"id": "officecli", "name": "iOfficeAI/OfficeCLI v1.0.160", "path": str(OFFICECLI),
+        {"id": "officecli", "name": "iOfficeAI/OfficeCLI v1.0.161", "path": str(OFFICECLI),
          "ready": OFFICECLI.is_file(), "file_exists": OFFICECLI.exists(),
-         "bridge": "work_officecli_run", "note": "已接入：单命令 / 批量 Office 检视编辑"},
+         "bridge": "work_office_inspect / work_office_compose / work_office_batch", "note": "已接入：检视、生成、批量编辑与结构校验"},
         {"id": "officemcp", "name": "OfficeMCP (WPS/MS Office COM)", "path": str(_om_entry),
          "ready": _om_entry.is_file() and _com_ok, "file_exists": _om_entry.exists(),
          "bridge": "work_office_com",
          "note": "工具箱已有等价 COM 封装，不重复起 MCP 服务" + ("" if _com_ok else "；pywin32 不可用")},
         {"id": "word-mcp", "name": "Office-Word-MCP-Server", "path": str(_word_entry),
          "ready": _word_entry.is_file(), "file_exists": _word_entry.exists(),
-         "bridge": "work_word_mcp", "note": "已接入：54 个 Word 高级工具（默认只读）"},
+         "bridge": "work_office_advanced(engine=word)", "note": "已接入：58 个 Word 高级工具（默认只读）"},
         {"id": "excel-mcp", "name": "harris-musa/excel-mcp-server", "path": str(_excel_entry),
          "ready": _excel_entry.is_file(), "file_exists": _excel_entry.exists(),
-         "bridge": "work_excel_mcp", "note": "已接入：46 个高级 Excel 工具（默认只读）"},
+         "bridge": "work_office_advanced(engine=excel)", "note": "已接入：46 个高级 Excel 工具（默认只读）"},
         {"id": "pdf", "name": "Office→PDF（COM）", "path": str(WORKERS / "office_convert.py"),
          "ready": (WORKERS / "office_convert.py").exists(), "file_exists": (WORKERS / "office_convert.py").exists(),
          "note": "需本机装 Office（本机 Word/Excel 16.0 实测可用）"},
@@ -363,7 +363,7 @@ def work_office_consolidate(
 @TOOLS.tool(
     name="work_office_format_gbt9704",
     description=(
-        "把 Markdown 草稿、纯文本或普通 Word 一键排版为规范 .docx 文档（自动解析标题层级、列表与 Markdown 表格）："
+        "【内部兼容，不通过 MCP 暴露；新调用请用 work_office_compose】把 Markdown 草稿、纯文本或普通 Word 一键排版为规范 .docx 文档："
         "支持 preset='gbt9704'（默认，《党政机关公文格式》GB/T 9704-2012：37/35/28/26mm页边距、红头版头、二号小标宋标题、三号仿宋28磅行距）、"
         "'modern'（现代商务/技术报告：微软雅黑深蓝标题与表头着色）、'academic'（学术论文：宋体/Times New Roman 与三线表）、"
         "'memo'（简洁备忘录），并自动用 OfficeCLI 校验。"
@@ -484,7 +484,7 @@ LONG_RUNNING_COMMANDS = {"watch"}
 @TOOLS.tool(
     name="work_officecli_run",
     description=(
-        "直接调用内置 OfficeCLI (officecli.exe) 操作 .docx/.xlsx/.pptx 的单个命令。"
+        "【内部兼容，不通过 MCP 暴露；结构化编辑请用 work_office_batch】直接调用内置 OfficeCLI 的单个命令。"
         "command 支持 validate/view/get/query/set/add/remove/move/swap/raw/raw-set/"
         "add-part/batch/refresh/save/open/close/dump/help/plugins；"
         "args 为附加参数数组，DOM 路径是位置参数，例如 [\"/body/p[1]\",\"--prop\",\"bold=true\"]。"
@@ -577,7 +577,7 @@ def _watch_info() -> Dict[str, Any]:
 @TOOLS.tool(
     name="work_office_watch",
     description=(
-        "【起本地预览服务】用 OfficeCLI 的 watch 给 docx/xlsx/pptx 开一个实时预览网页："
+        "【内部兼容，不通过 MCP 暴露】用 OfficeCLI watch 给 docx/xlsx/pptx 开实时预览网页："
         "之后所有 work_officecli_run / work_office_batch 的改动会自动刷新到页面上，改完立刻能看见。"
         "action=start 起服务（返回 url，默认端口 26315）；status 看是否还在跑；stop 关掉；"
         "mark/unmark/marks/goto 用来在预览里标记与跳转到某个元素（path 形如 /body/p[1]）。"
@@ -725,7 +725,7 @@ def _tmp_json(name: str, obj: Any) -> Path:
 @TOOLS.tool(
     name="work_office_schema",
     description=(
-        "【只读】查 OfficeCLI 的 schema：某个格式有哪些元素、某个动词接受哪些属性、单位与可选值。"
+        "【内部兼容，不通过 MCP 暴露；新调用请用 work_office_inspect(mode=\"schema\")】查 OfficeCLI schema。"
         "写 add/set 的 --prop 之前先查这里，不要凭印象编属性名。"
         "format 留空列出全部格式；只给 format 列元素；再给 element 列该元素的属性表。"
         "【空参只返回总览 mode=overview】要属性名必须带 format（最好连 verb / element 一起给）。"
@@ -780,44 +780,82 @@ def work_office_schema(format: str = "", verb: str = "", element: str = "") -> s
 @TOOLS.tool(
     name="work_office_batch",
     description=(
-        "【写文件】一次执行多条 OfficeCLI 操作，一次开关文件，比逐条 add/set 快且不会中间态落盘。"
-        "ops 是操作数组的 JSON（也可传 .json 文件路径）。每项形如 "
-        '{"command":"set","path":"/body/p[1]","props":{"bold":"true"}}；'
-        'add 用 "parent"+"type"+"props"，query 用 "selector"（可加 "compact":true）。'
-        "覆盖原件前先 work_backup_file；写完建议 command=validate 校验。"
-        "【无 dry_run】想先看结构用只读的 work_office_inspect / work_officecli_run command=get。"
+        "【写文件·Office 首选编辑入口】一次执行多条 OfficeCLI 操作，一次开关文件，比逐条 add/set 更快。"
+        "ops 是操作数组 JSON（也可传 .json 文件路径）；add 用 parent+type+props，set 用 path+props。"
+        "create=true 时目标不存在会先按扩展名创建空白 docx/xlsx/pptx；默认先自动备份，完成后自动 validate。"
+        "需要属性名时先用 work_office_inspect(mode='schema') 查询，改完再用 inspect 检查内容与版式。"
     ),
 )
-def work_office_batch(file: str, ops: str = "", timeout: int = 300) -> str:
+def work_office_batch(file: str, ops: str = "", timeout: int = 300,
+                      create: bool = False, backup: bool = True,
+                      validate: bool = True) -> str:
     if not OFFICECLI.exists():
         return _dump({"ok": False, "error": f"未找到 OfficeCLI: {OFFICECLI}"})
-    target, err = _file_arg(file)
-    if err:
-        return _dump({"ok": False, "error": err})
+    if not (file or "").strip():
+        return _dump({"ok": False, "error": "file 不能为空：传文件绝对路径，或工作区相对路径"})
+    target = _resolve_path(file, DIR_OUTPUT / Path(file).name)
+    ext = target.suffix.lower()
+    if ext not in (".docx", ".xlsx", ".pptx"):
+        return _dump({"ok": False, "error": f"只支持 .docx/.xlsx/.pptx，收到 {ext or '（无扩展名）'}"})
 
     raw = (ops or "").strip()
-    if not raw:
+    if not raw and not create:
         return _dump({"ok": False, "error": "ops 不能为空：给操作数组的 JSON，或 .json 文件路径",
-                      "example": '[{"command":"set","path":"/body/p[1]","props":{"align":"center"}}]'})
+                      "hint": "若只是新建空白文件，传 create=true"})
+
     tmp: Optional[Path] = None
-    if raw.startswith("@") or (raw.lower().endswith(".json") and Path(raw).is_file()) \
-            or (Path(raw).exists() if len(raw) < 260 else False):
-        p = Path(raw[1:] if raw.startswith("@") else raw)
-        if not p.is_absolute():
-            p = (ROOT / p).resolve()
-        if not p.is_file():
-            return _dump({"ok": False, "error": f"操作文件不存在: {p}"})
-        ops_path = p
+    ops_path: Optional[Path] = None
+    if raw:
+        if raw.startswith("@") or (raw.lower().endswith(".json") and Path(raw).is_file()) \
+                or (Path(raw).exists() if len(raw) < 260 else False):
+            p = Path(raw[1:] if raw.startswith("@") else raw)
+            if not p.is_absolute():
+                p = (ROOT / p).resolve()
+            if not p.is_file():
+                return _dump({"ok": False, "error": f"操作文件不存在: {p}"})
+            ops_path = p
+        else:
+            try:
+                parsed_ops = json.loads(raw)
+            except Exception as exc:
+                return _dump({"ok": False, "error": f"ops 不是合法 JSON: {exc}",
+                              "example": '[{"command":"add","parent":"/body","type":"paragraph","props":{"text":"正文"}}]'})
+            if not isinstance(parsed_ops, list) or not parsed_ops:
+                return _dump({"ok": False, "error": "ops 必须是非空数组"})
+            tmp = _tmp_json("ops", parsed_ops)
+            ops_path = tmp
+
+    created = False
+    backup_path = ""
+    if target.is_file():
+        if backup:
+            backup_path = _backup_target({"path": str(target)})
+    elif create:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        cres = _run_officecli([str(OFFICECLI), "create", str(target), "--json"], timeout=120)
+        if cres["exit_code"] != 0 or not target.is_file():
+            if tmp is not None:
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            return _dump({"ok": False, "error": "目标文件不存在且自动创建失败",
+                          "file": str(target), "stdout": cres["stdout"][:2000],
+                          "stderr": cres["stderr"][:2000]})
+        created = True
     else:
-        try:
-            parsed_ops = json.loads(raw)
-        except Exception as exc:
-            return _dump({"ok": False, "error": f"ops 不是合法 JSON: {exc}",
-                          "example": '[{"command":"add","parent":"/body","type":"paragraph","props":{"text":"正文"}}]'})
-        if not isinstance(parsed_ops, list) or not parsed_ops:
-            return _dump({"ok": False, "error": "ops 必须是非空数组"})
-        tmp = _tmp_json("ops", parsed_ops)
-        ops_path = tmp
+        if tmp is not None:
+            try:
+                tmp.unlink()
+            except Exception:
+                pass
+        return _dump({"ok": False, "error": f"文件不存在: {target}",
+                      "hint": "确认路径，或传 create=true 先创建空白文件"})
+
+    if not raw:
+        return _dump({"ok": True, "file": str(target), "created": created,
+                      "size_kb": round(target.stat().st_size / 1024, 1),
+                      "hint": "空白文件已创建；下一步可继续用 work_office_batch 写入内容"})
 
     try:
         argv = [str(OFFICECLI), "batch", str(target), "--input", str(ops_path), "--json"]
@@ -830,19 +868,30 @@ def work_office_batch(file: str, ops: str = "", timeout: int = 300) -> str:
                 pass
 
     parsed = _parse_json(res["stdout"])
-    payload = {
+    payload: Dict[str, Any] = {
         "ok": res["exit_code"] == 0,
+        "file": str(target),
+        "created": created,
+        "backup": backup_path or None,
         "command": f"officecli batch {target.name} --input <ops>",
         "exit_code": res["exit_code"],
         "result": parsed,
         "stdout": res["stdout"][:8000] if parsed is None else None,
         "stderr": res["stderr"][:4000] or None,
     }
+    if payload["ok"] and validate:
+        vres = _run_officecli([str(OFFICECLI), "validate", str(target), "--json"], timeout=120)
+        payload["validation"] = _parse_json(vres["stdout"]) or {
+            "exit_code": vres["exit_code"], "stdout": vres["stdout"][:2000],
+            "stderr": vres["stderr"][:1000],
+        }
+        payload["valid"] = vres["exit_code"] == 0
     if not payload["ok"]:
-        payload["hint"] = ("常见原因：属性名写错（先 work_office_schema 查）、"
-                           "路径不存在（先 command=get 看 DOM）、元素类型不支持该属性。"
-                           "改动已落盘，用 validate 确认结构。")
-    _save_state("last_office_batch", {"ok": payload["ok"], "exit_code": res["exit_code"]})
+        payload["hint"] = ("常见原因：属性名写错（先 work_office_inspect(mode=\"schema\") 查）、"
+                           "路径不存在（先 work_office_inspect(mode=\"annotated\") 看 DOM）、"
+                           "元素类型不支持该属性。")
+    _save_state("last_office_batch", {"ok": payload["ok"], "exit_code": res["exit_code"],
+                                      "file": str(target), "backup": backup_path})
     return _dump(payload)
 
 
@@ -852,7 +901,7 @@ def work_office_batch(file: str, ops: str = "", timeout: int = 300) -> str:
 @TOOLS.tool(
     name="work_office_create",
     description=(
-        "【写文件】新建一份空白 .docx/.xlsx/.pptx（OfficeCLI create），再配合 work_office_batch "
+        "【内部兼容，不通过 MCP 暴露；新调用请用 work_office_batch(create=true)】新建空白 Office 文件。"
         "往里写内容。适合「从零做一张表 / 一份通知 / 一页汇报」。"
         "默认落在 03_汇总与成稿输出/；force=true 才允许覆盖已存在的文件。"
     ),
@@ -1061,17 +1110,17 @@ def work_office_merge(template: str = "", output: str = "", data: str = "",
     description=(
         "【写文件】把 CSV/TSV 数据导入 .xlsx 的某张表（OfficeCLI import）。"
         "source 给 .csv/.tsv 路径，或直接把文本给 data。header=true 会加筛选与冻结首行。"
-        "目标文件不存在时先 work_office_create 建一个。"
+        "目标 .xlsx 不存在时自动创建；覆盖已有目标前自动备份。"
     ),
 )
 def work_office_import(file: str = "", sheet: str = "", source: str = "", data: str = "",
                        header: bool = True, start_cell: str = "A1",
-                       delimiter: str = "", format: str = "") -> str:
+                       delimiter: str = "", format: str = "", backup: bool = True) -> str:
     if not OFFICECLI.exists():
         return _dump({"ok": False, "error": f"未找到 OfficeCLI: {OFFICECLI}"})
-    target, err = _file_arg(file)
-    if err:
-        return _dump({"ok": False, "error": err})
+    if not (file or "").strip():
+        return _dump({"ok": False, "error": "file 不能为空：传文件绝对路径，或工作区相对路径"})
+    target = _resolve_path(file, DIR_OUTPUT / Path(file).name)
     if target.suffix.lower() != ".xlsx":
         return _dump({"ok": False, "error": f"只支持导入到 .xlsx，收到 {target.suffix}"})
 
@@ -1090,6 +1139,22 @@ def work_office_import(file: str = "", sheet: str = "", source: str = "", data: 
         src_path = tmp
     else:
         return _dump({"ok": False, "error": "source 与 data 至少给一个（CSV/TSV 文件路径或文本）"})
+
+    created = False
+    backup_path = ""
+    if target.is_file():
+        if backup:
+            backup_path = _backup_target({"path": str(target)})
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        cres = _run_officecli([str(OFFICECLI), "create", str(target), "--json"], timeout=120)
+        if cres["exit_code"] != 0 or not target.is_file():
+            if tmp is not None:
+                tmp.unlink(missing_ok=True)
+            return _dump({"ok": False, "error": "目标 .xlsx 不存在且自动创建失败",
+                          "file": str(target), "stdout": cres["stdout"][:2000],
+                          "stderr": cres["stderr"][:2000]})
+        created = True
 
     sheet_path = sheet if (sheet or "").startswith("/") else "/" + (sheet or "Sheet1")
     try:
@@ -1115,6 +1180,8 @@ def work_office_import(file: str = "", sheet: str = "", source: str = "", data: 
         "ok": ok,
         "file": str(target),
         "sheet": sheet_path,
+        "created": created,
+        "backup": backup_path or None,
         "result": parsed,
         "stdout": res["stdout"][:3000] if parsed is None else None,
         "stderr": res["stderr"][:2000] or None,
@@ -1258,8 +1325,9 @@ def work_office_com(action: str = "apps", file: str = "", engine: str = "auto",
         "outline 取结构大纲；stats 取字数/字体/样式分布；issues 做格式/内容/未求值公式与域体检（可配 issue_type）；"
         "annotated 取带 DOM 路径标注视图；forms 取表单控件；comments 提取全部批注；"
         "screenshot 渲染页面/幻灯片/局部区域高清截图 PNG（可配 page、grid='auto' 整篇缩略图矩阵、output）；"
-        "html/svg/pdf 导出独立预览网页或 PDF；"
-        "skills 加载内置 10 套专业文档构建指南（此时 file 传 'list' 或 word/excel/pptx/data-dashboard/financial-model/academic-paper/word-form/pitch-deck/morph-ppt/morph-ppt-3d）。"
+        "html/svg 导出独立预览网页；schema 查 OfficeCLI 元素、动词和属性 Schema；"
+        "skills 加载内置文档构建指南（file 传 list 或 word/excel/pptx/data-dashboard/financial-model/academic-paper/word-form/pitch-deck/morph-ppt/morph-ppt-3d）。"
+        "需要 PDF 时用 work_office_to_pdf。"
     ),
 )
 def work_office_inspect(
@@ -1275,16 +1343,24 @@ def work_office_inspect(
     grid: str = "",
     output: str = "",
     skill: str = "",
+    format: str = "",
+    verb: str = "",
+    element: str = "",
 ) -> str:
     if not OFFICECLI.exists():
         return _dump({"ok": False, "error": f"未找到 OfficeCLI: {OFFICECLI}"})
     mode = (mode or "text").strip().lower()
     _MODES = ("text", "annotated", "outline", "stats", "issues", "forms",
-              "screenshot", "html", "svg", "pdf", "comments", "skills")
+              "screenshot", "html", "svg", "comments", "skills", "schema")
     if mode not in _MODES:
         return _dump({"ok": False, "error": f"不支持的 mode: {mode}", "allowed": list(_MODES)})
 
-    # 特殊模式 1：加载 officecli 内置的 10 套通用场景构建指南 (load_skill)
+    # 特殊模式 1：查 OfficeCLI schema，避免为了查一个属性再切换工具。
+    if mode == "schema":
+        impl = getattr(work_office_schema, "__wrapped__", work_office_schema)
+        return impl(format=format, verb=verb, element=element)
+
+    # 特殊模式 2：加载 officecli 内置的通用场景构建指南 (load_skill)
     if mode == "skills":
         sk = (skill or file or "").strip()
         cmd = [str(OFFICECLI), "load_skill"]
@@ -1304,7 +1380,7 @@ def work_office_inspect(
     if err:
         return _dump({"ok": False, "error": err})
 
-    # 特殊模式 2：统一提取批注 (.docx / .xlsx / .pptx)
+    # 特殊模式 3：统一提取批注 (.docx / .xlsx / .pptx)
     if mode == "comments":
         res = _run_officecli([str(OFFICECLI), "query", str(target), "comment", "--json"], timeout=90)
         parsed = _parse_json(res["stdout"])
@@ -1323,10 +1399,10 @@ def work_office_inspect(
                     pass
         return _dump({"ok": True, "file": str(target), "mode": "comments", "data": comments_list})
 
-    # 特殊模式 3：视觉截图与多格式渲染导出 (screenshot / html / svg / pdf)
-    if mode in ("screenshot", "html", "svg", "pdf"):
+    # 特殊模式 4：视觉截图与渲染导出 (screenshot / html / svg)
+    if mode in ("screenshot", "html", "svg"):
         _ensure_dirs()
-        ext_map = {"screenshot": ".png", "html": ".html", "svg": ".svg", "pdf": ".pdf"}
+        ext_map = {"screenshot": ".png", "html": ".html", "svg": ".svg"}
         default_dir = STATE_DIR if mode == "screenshot" else DIR_OUTPUT
         default_name = f"preview_{target.stem}{ext_map[mode]}" if mode == "screenshot" else f"{target.stem}{ext_map[mode]}"
         out_path = _resolve_path(output, default_dir / default_name)
@@ -1705,9 +1781,33 @@ def _word_mcp_tools():
 
 
 @TOOLS.tool(
+    name="work_office_advanced",
+    description=(
+        "【高级可选引擎·默认只读】统一入口调用两个专业开源库："
+        "engine='excel' 使用 excel-mcp-server 的 46 个工具（透视表、图表、公式追踪、目标求解、条件格式等）；"
+        "engine='word' 使用 Office-Word-MCP-Server 的 58 个工具（批注、脚注、保护、锚点替换、表格美化等）。"
+        "action='list' 或 'schema' 查准确子工具名与参数 Schema；action='call' 才执行。"
+        "优先用 work_office_inspect / work_office_batch / work_office_compose；只有它们确实覆盖不了时才进入这里。"
+        "写操作必须 allow_write=true，执行前自动备份目标文件。"
+    ),
+)
+def work_office_advanced(engine: str = "", action: str = "list", tool: str = "",
+                         args: str = "", keyword: str = "", allow_write: bool = False,
+                         max_chars: int = 24000) -> str:
+    eng = (engine or "").strip().lower()
+    if eng not in ("excel", "word"):
+        return _dump({"ok": False, "error": "engine 必须是 excel 或 word",
+                      "hint": "Excel 高级分析传 engine='excel'；Word 审阅/脚注/保护传 engine='word'"})
+    target = work_excel_mcp if eng == "excel" else work_word_mcp
+    impl = getattr(target, "__wrapped__", target)
+    return impl(action=action, tool=tool, args=args, keyword=keyword,
+                allow_write=allow_write, max_chars=max_chars)
+
+
+@TOOLS.tool(
     name="work_office_engines",
     description=(
-        "【只读·引擎体检】真实盘点 mcp_servers/ 下克隆的 Office 与通讯 MCP 项目："
+        "【只读·引擎体检】真实盘点 mcp_servers/ 下克隆的 Office MCP 项目："
         "不只看文件在不在，还实际 import 入口、数出能加载多少工具，"
         "并给出每个仓库对应的可调用桥（或明确说明为什么没接）。"
         "用于「克隆的那些 office 项目 / MCP 到底用上了没」「哪个引擎能用」。"
@@ -1728,23 +1828,23 @@ def work_office_engines(action: str = "probe", keyword: str = "") -> str:
     etools, _, err = _excel_mcp_tools()
     if err:
         add("excel-mcp", "excel-mcp-server 2.2.9", _EXCEL_MCP_SRC, False,
-            "work_excel_mcp", f"加载失败：{err}")
+            "work_office_advanced(engine=excel)", f"加载失败：{err}")
     else:
         add("excel-mcp", "excel-mcp-server 2.2.9", _EXCEL_MCP_SRC, True,
-            "work_excel_mcp", "已接入：高级 Excel（260+公式引擎/透视表/图表/公式溯源/目标求解等）可直接调用",
+            "work_office_advanced(engine=excel)", "已接入：高级 Excel（260+公式引擎/透视表/图表/公式溯源/目标求解等）",
             {"tools": len(etools)})
 
     add("officecli", "iOfficeAI/OfficeCLI v1.0.161", OFFICECLI, OFFICECLI.is_file(),
-        "work_officecli_run / work_office_batch / work_office_inspect / work_office_compose",
-        "已接入：常驻 MCP 管道加速 + 10 套专业文档构建指南 + 截图/HTML/PDF 渲染" if OFFICECLI.is_file() else "bin/officecli.exe 缺失")
+        "work_office_inspect / work_office_compose / work_office_batch",
+        "已接入：常驻 MCP 管道加速 + 构建指南 + 截图/HTML/SVG 渲染；PDF 由 COM 工具负责" if OFFICECLI.is_file() else "bin/officecli.exe 缺失")
 
     wtools, _, werr = _word_mcp_tools()
     if werr:
         add("word-mcp", "Office-Word-MCP-Server", _WORD_MCP_ROOT, False,
-            "work_office_com / workbuddy-docx（原生）", f"加载失败：{werr}")
+            "work_office_advanced(engine=word)", f"加载失败：{werr}")
     else:
         add("word-mcp", "Office-Word-MCP-Server", _WORD_MCP_ROOT, True,
-            "work_word_mcp", "已接入：多文档合并/批注/脚注/文档保护/结构化锚点编辑等 Word 高级能力",
+            "work_office_advanced(engine=word)", "已接入：多文档合并/批注/脚注/文档保护/结构化锚点编辑等 Word 高级能力",
             {"tools": len(wtools)})
 
     om = ROOT / "mcp_servers" / "OfficeMCP" / "src" / "officemcp" / "OfficeMCP.py"
@@ -1759,15 +1859,6 @@ def work_office_engines(action: str = "probe", keyword: str = "") -> str:
         "工具箱已有等价封装，不重复起一个 MCP 服务" if com_ok else
         "pywin32 不可用，COM 链路不可用")
 
-    wc_root = ROOT / "mcp_servers" / "wechat-chat-mcp"
-    wc_py = wc_root / ".venv" / "Scripts" / "python.exe"
-    wc_entry = wc_root / "entry.py"
-    wc_ready = bool(wc_py.is_file() and wc_entry.is_file())
-    add("wechat-chat-mcp", "Haoea1024/wechat-chat-mcp", wc_root, wc_ready,
-        "wechat_chat（独立 stdio MCP）",
-        "已接入独立 .venv：支持深度聊天检索、群成员反推、图片/语音(Whisper)/PDF/文档多模态读取"
-        if wc_ready else "未检测到独立 .venv 或入口文件，需先初始化 mcp_servers/wechat-chat-mcp/.venv")
-
     if keyword.strip():
         kw = keyword.strip().lower()
         rows = [r for r in rows if kw in json.dumps(r, ensure_ascii=False).lower()]
@@ -1779,16 +1870,15 @@ def work_office_engines(action: str = "probe", keyword: str = "") -> str:
         "bridged": sum(1 for r in rows if r["ready"] and r["bridge"].startswith("work_")),
         "engines": rows,
         "note": ("ready 只说明「源码/依赖/入口可用」，不等于所有功能都验证过。"
-                 "已接入的克隆引擎：work_excel_mcp（46 个高级 Excel 工具）、"
-                 "work_word_mcp（58 个 Word 高级工具），两者默认只读、写前自动备份；"
-                 "work_officecli_run 是常驻管道加速的 OfficeCLI 单命令。"),
+                 "work_office_advanced 统一接入 46 个 Excel 与 58 个 Word 工具，默认只读、写前自动备份；"
+                 "日常读写优先走 work_office_inspect / work_office_batch / work_office_compose。"),
     })
 
 
 @TOOLS.tool(
     name="work_excel_mcp",
     description=(
-        "【接入克隆的 excel-mcp-server（46 个工具）】免装 Office 的工业级 Excel 引擎："
+        "【内部兼容，不通过 MCP 暴露；新调用请用 work_office_advanced(engine=\"excel\")】excel-mcp-server 高级引擎："
         "内置 260+ 函数计算引擎（read_range 直接算出公式值）、公式溯源与逐步求值（trace_formula）、"
         "单变量目标求解（goal_seek）、真数据透视表（create_pivot_table）与切片器（add_slicer）、"
         "现代图表（create_chart：柱/线/饼/瀑布/箱线/旭日/树状/漏斗图）与迷你图（add_sparklines）、"
@@ -1904,7 +1994,7 @@ def work_excel_mcp(action: str = "list", tool: str = "", args: str = "",
 @TOOLS.tool(
     name="work_word_mcp",
     description=(
-        "【接入克隆的 Office-Word-MCP-Server（58 个工具）】Word 深度结构化编辑与审阅引擎："
+        "【内部兼容，不通过 MCP 暴露；新调用请用 work_office_advanced(engine=\"word\")】Office-Word-MCP-Server 高级引擎："
         "多文档合并（merge_documents）、文档结构/XML 检视、提取全部批注（get_all_comments / get_comments_by_author）、"
         "上下标脚注/尾注插入与校验（add_footnote_robust / convert_footnotes_to_endnotes / validate_document_footnotes）、"
         "按文本锚点插入或替换段落区块（insert_header_near_text / replace_paragraph_block_below_header / replace_block_between_manual_anchors）、"
@@ -2020,8 +2110,8 @@ def work_word_mcp(action: str = "list", tool: str = "", args: str = "",
         "【写文件】通用富文档(.docx)与演示文稿(.pptx)一键生成引擎（底层直驱 OfficeCLI 原生富元素）："
         "将 Markdown 文本或 .md 文件（支持多级标题、列表、代码块、GFM 表格、```mermaid 流程图、$$数学公式$$）"
         "一键转化为原生可编辑的 Word 文档(.docx)或 PowerPoint 演示文稿(.pptx)！"
-        "docx 支持可选自动插入目录（toc=true）、水印（watermark='...'）及排版风格（preset='modern'|'academic'|'memo'|'gbt9704'）；"
-        "pptx 自动按 # / ## 标题切分幻灯片并排入要点、表格与 Mermaid 流程图。"
+        "docx 支持自动目录、水印及 preset='modern'|'academic'|'memo'|'gbt9704'；"
+        "输入 .docx 时直接按 preset 重排现有文档。pptx 自动按标题切分幻灯片并排入要点与 Mermaid 流程图。"
     ),
 )
 def work_office_compose(
@@ -2034,16 +2124,27 @@ def work_office_compose(
     watermark: str = "",
     force: bool = True,
     output_path: str = "",
+    doc_type: str = "报告",
+    header_unit: str = "",
+    doc_number: str = "",
 ) -> str:
     output = output or output_path
-    if not OFFICECLI.exists():
-        return _dump({"ok": False, "error": f"未找到 OfficeCLI: {OFFICECLI}"})
     raw = (content_or_path or "").strip()
     if not raw:
-        return _dump({"ok": False, "error": "content_or_path 不能为空：传 Markdown 文本或 .md 文件路径"})
+        return _dump({"ok": False, "error": "content_or_path 不能为空：传 Markdown 正文、.md 文件或需要重排的 .docx"})
 
     src_file, err = _file_arg(raw)
+    if not err and src_file is not None and src_file.is_file() and src_file.suffix.lower() == ".docx":
+        impl = getattr(work_office_format_gbt9704, "__wrapped__", work_office_format_gbt9704)
+        return impl(content_or_path=str(src_file), doc_type=doc_type,
+                    header_unit=header_unit, doc_number=doc_number,
+                    output_path=output, preset=preset or "modern")
+    if not OFFICECLI.exists():
+        return _dump({"ok": False, "error": f"未找到 OfficeCLI: {OFFICECLI}"})
     if not err and src_file is not None and src_file.is_file():
+        if src_file.suffix.lower() not in (".md", ".markdown", ".txt"):
+            return _dump({"ok": False, "error": f"不支持直接从 {src_file.suffix} 合成；"
+                                                    "docx 重排请把该 .docx 作为 content_or_path"})
         md_text = src_file.read_text(encoding="utf-8-sig", errors="replace")
         stem_default = src_file.stem
     else:
@@ -2467,3 +2568,19 @@ def work_office_join_docx(
         "output": str(out_path),
         "size_kb": round(out_path.stat().st_size / 1024, 1) if out_path.exists() else 0,
     })
+
+
+# 对外 MCP 只保留高频、边界清楚的工作流；其余保留为内部实现或兼容直调，
+# 不进入 tools/list，避免 Agent 在重叠工具之间反复试探。
+PRIVATE_TOOL_NAMES = {
+    "work_office_format_gbt9704",
+    "work_officecli_run",
+    "work_office_watch",
+    "work_office_schema",
+    "work_office_create",
+    "work_excel_mcp",
+    "work_word_mcp",
+}
+for _entry in TOOLS.tools:
+    if _entry["name"] in PRIVATE_TOOL_NAMES:
+        _entry["public"] = False
