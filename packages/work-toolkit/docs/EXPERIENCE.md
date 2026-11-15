@@ -71,7 +71,7 @@ Codex 里另外注册了 `[mcp_servers.engram]`（`--tools=agent`），可直接
 
 ## 四、局限
 
-- 轨迹只能自动捕获本项目进程内的 `work_*` 工具；外部 MCP（如 `wechat_chat`、`officecli` 原生 MCP）依赖 Codex rollout 回退解析，参数可能不全。
+- 轨迹只能自动捕获本项目进程内的 `work_*` 工具；外部 MCP（如 `wechat_chat`）依赖 Codex rollout 回退解析，参数可能不全。OfficeCLI 由 `work_office` 内部调用，不作为独立 MCP 注册。
 - 一段轨迹里若混了两件事，distill 会全部纳入，可用 `since` / `limit` 或事后编辑文档裁剪。
 - 修改 `~/.codex/config.toml` 后需重启 Codex 才会加载 `engram` / `work_*` MCP。
 

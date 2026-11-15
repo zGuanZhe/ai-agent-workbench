@@ -58,14 +58,6 @@ MANAGED_MODULES = [
         "entry": "mcp_servers/wechat-chat-mcp",
         "skill_id": None,
     },
-    {
-        "id": "officecli",
-        "name": "OfficeCLI 原生引擎",
-        "module": "external",
-        "desc": "外部 officecli MCP 配置项",
-        "entry": "bin/officecli.exe",
-        "skill_id": None,
-    },
 ]
 
 

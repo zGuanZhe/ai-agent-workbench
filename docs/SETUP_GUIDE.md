@@ -93,16 +93,8 @@ python -X utf8 scripts/bootstrap.py --install
    PYTHONIOENCODING = "utf-8"
    PYTHONUTF8 = "1"
 
-   [mcp_servers.officecli]
-   command = 'D:\path	oi-agent-workbench\packages\work-toolkitin\officecli.exe'
-   args = ["mcp"]
-   enabled = true
-   startup_timeout_sec = 30
-   tool_timeout_sec = 300
-
-   [mcp_servers.officecli.env]
-   OFFICECLI_RESIDENT_FLUSH = "each"
    ```
+   > OfficeCLI 由 `work_office` 内部调用，无需单独注册 MCP。
    > 若同时配置了 `wechat-chat-mcp`，额外添加 `[mcp_servers.wechat_chat]` 指向其 `.venv\Scripts\python.exe` 与 `-m wechat_assistant.cli mcp`（建议 `tool_timeout_sec = 900`）。
 
 ### 2.3 接入 WorkBuddy

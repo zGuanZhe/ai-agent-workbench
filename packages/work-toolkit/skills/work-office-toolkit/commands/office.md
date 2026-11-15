@@ -10,7 +10,7 @@ $ARGUMENTS
 ---
 
 按独立模块 `office`（`work-office` Skill）执行：
-1. 若当前会话已挂载 `work_office` / `officecli` MCP，直接一步调用对应工具（如 `work_office_inspect`、`work_office_compose`、`work_office_diff`、`work_office_join_docx`、`work_office_consolidate`、`work_excel_mcp`、`work_word_mcp`）。
+1. 若当前会话已挂载 `work_office` MCP，直接一步调用对应工具（如 `work_office_inspect`、`work_office_compose`、`work_office_diff`、`work_office_join_docx`、`work_office_consolidate`、`work_excel_mcp`、`work_word_mcp`）。
 2. 或通过单模块 CLI 执行（仅加载 `office.py`）：
 ```bash
 python "<WORK_ROOT>/scripts/work.py" office --run "<user_input 原话>"
